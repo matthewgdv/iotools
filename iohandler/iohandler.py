@@ -100,7 +100,7 @@ class IOHandler:
 
         if outdir:
             backup = self.outfile.contents if outfile else ""
-            self.outdir.setsafemode(False).clear().newfile("output.txt").contents = backup
+            self.outdir.clear().newfile("output.txt").contents = backup
 
     def _run_as_gui(self, arguments: Dict[str, Any]) -> None:
         from .gui import ArgsGui
