@@ -15,6 +15,8 @@ from miscutils import is_running_in_ipython
 
 from .typevalidator import TypeValidator
 
+# TODO: implement Enum support for choices
+
 
 class RunMode(Enum):
     Smart, CommandLine, Gui, Programmatic = "smart", "commandline", "gui", "programmatic"
