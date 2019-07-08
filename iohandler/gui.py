@@ -71,13 +71,13 @@ class WidgetSelector:
             self.frame = WidgetFrame(argument=self.arg, manager=Checkbox(text=self.arg.name, state=self.arg.default))
         elif self.arg.argtype in {int, float}:
             self.frame = WidgetFrame(argument=self.arg, manager=Entry(state=self.arg.default))
-        elif self.arg.argtype in [File, Dir]:
+        elif self.arg.argtype in {File, Dir}:
             self.frame = WidgetFrame(argument=self.arg, manager=(FileSelect if self.arg.argtype is File else DirSelect)(state=self.arg.default))
-        elif self.arg.argtype in [dt.date, dt.datetime, DateTime]:
+        elif self.arg.argtype in {dt.date, dt.datetime, DateTime}:
             self.frame = WidgetFrame(argument=self.arg, manager=DateTimeEdit(state=self.arg.default, magnitude=self.arg.magnitude) if self.arg.magnitude else Calendar(state=self.arg.default))
         elif self.arg.argtype is str or self.arg.argtype is None:
             self.frame = WidgetFrame(argument=self.arg, manager=Text(state=self.arg.default, magnitude=self.arg.magnitude))
-        elif self.arg.argtype in [pd.DataFrame, Frame]:
+        elif self.arg.argtype in {pd.DataFrame, Frame}:
             self.frame = WidgetFrame(argument=self.arg, manager=Table(state=self.arg.default))
         elif self.arg.argtype in self.list_like or (self.arg.argtype.__module__ == "typing" and self.arg.argtype.__origin__ in self.list_like):
             self.frame = WidgetFrame(argument=self.arg, manager=ListTable(state=self.arg.default))
