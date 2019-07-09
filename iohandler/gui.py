@@ -56,35 +56,32 @@ class WidgetFrame(WidgetManager):
             else:
                 self.widget.setChecked(True)
 
+    @classmethod
+    def from_arg(cls, arg: Argument) -> WidgetFrame:
+        list_like = (list, tuple, set)
 
-class WidgetSelector:
-    list_like = {list, tuple, set}
-
-    def __init__(self, arg: Argument) -> None:
-        self.arg = arg
-
-        if self.arg.choices is not None:
-            self.frame = WidgetFrame(argument=self.arg, manager=DropDown(choices=self.arg.choices, state=self.arg.default))
-        elif self.arg.argtype is Dict[str, bool]:
-            self.frame = WidgetFrame(argument=self.arg, manager=CheckBar(choices=self.arg.default))
-        elif self.arg.argtype is bool:
-            self.frame = WidgetFrame(argument=self.arg, manager=Checkbox(text=self.arg.name, state=self.arg.default))
-        elif self.arg.argtype in {int, float}:
-            self.frame = WidgetFrame(argument=self.arg, manager=Entry(state=self.arg.default))
-        elif self.arg.argtype in {File, Dir}:
-            self.frame = WidgetFrame(argument=self.arg, manager=(FileSelect if self.arg.argtype is File else DirSelect)(state=self.arg.default))
-        elif self.arg.argtype in {dt.date, dt.datetime, DateTime}:
-            self.frame = WidgetFrame(argument=self.arg, manager=DateTimeEdit(state=self.arg.default, magnitude=self.arg.magnitude) if self.arg.magnitude else Calendar(state=self.arg.default))
-        elif self.arg.argtype is str or self.arg.argtype is None:
-            self.frame = WidgetFrame(argument=self.arg, manager=Text(state=self.arg.default, magnitude=self.arg.magnitude))
-        elif self.arg.argtype in {pd.DataFrame, Frame}:
-            self.frame = WidgetFrame(argument=self.arg, manager=Table(state=self.arg.default))
-        elif self.arg.argtype in self.list_like or (self.arg.argtype.__module__ == "typing" and self.arg.argtype.__origin__ in self.list_like):
-            self.frame = WidgetFrame(argument=self.arg, manager=ListTable(state=self.arg.default))
-        elif self.arg.argtype is dict or (self.arg.argtype.__module__ == "typing" and self.arg.argtype.__origin__ is dict):
-            self.frame = WidgetFrame(argument=self.arg, manager=DictTable(state=self.arg.default))
+        if arg.choices is not None:
+            return WidgetFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
+        elif arg.argtype is Dict[str, bool]:
+            return WidgetFrame(argument=arg, manager=CheckBar(choices=arg.default))
+        elif arg.argtype is bool:
+            return WidgetFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
+        elif arg.argtype in {int, float}:
+            return WidgetFrame(argument=arg, manager=Entry(state=arg.default))
+        elif arg.argtype in {File, Dir}:
+            return WidgetFrame(argument=arg, manager=(FileSelect if arg.argtype is File else DirSelect)(state=arg.default))
+        elif arg.argtype in {dt.date, dt.datetime, DateTime}:
+            return WidgetFrame(argument=arg, manager=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
+        elif arg.argtype is str or arg.argtype is None:
+            return WidgetFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
+        elif arg.argtype in {pd.DataFrame, Frame}:
+            return WidgetFrame(argument=arg, manager=Table(state=arg.default))
+        elif arg.argtype in list_like or (arg.argtype.__module__ == "typing" and arg.argtype.__origin__ in list_like):
+            return WidgetFrame(argument=arg, manager=ListTable(state=arg.default))
+        elif arg.argtype is dict or (arg.argtype.__module__ == "typing" and arg.argtype.__origin__ is dict):
+            return WidgetFrame(argument=arg, manager=DictTable(state=arg.default))
         else:
-            raise TypeError(f"Don't know how to handle type: '{self.arg.argtype}'.")
+            raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
 
 
 class ArgsGui:
@@ -103,7 +100,7 @@ class ArgsGui:
 
     def populate_main_segment(self) -> None:
         for arg in self.handler.arguments:
-            frame = WidgetSelector(arg=arg).frame
+            frame = WidgetFrame.from_arg(arg)
             arg._widget = frame
             self.gui.main_layout.addWidget(frame.widget)
 

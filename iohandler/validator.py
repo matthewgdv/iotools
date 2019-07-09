@@ -1,77 +1,19 @@
 from __future__ import annotations
 
 import datetime as dt
-import functools
-from typing import Any, List, Callable, TypeVar, cast
-from pathlib import Path
+from typing import Any, List, Callable
+import pathlib
 
 import typepy
 
 from maybe import Maybe
 from subtypes import DateTime
-from pathmagic import File, Dir
-
-FuncSig = TypeVar("FuncSig", bound=Callable)
+import pathmagic
 
 
 class TypeConversionError(typepy.TypeConversionError):
     def __init__(self, validator: Validator, value: Any) -> None:
         super().__init__(f"Failed {'strict' if validator._strict else 'permissive'}, {'' if validator._nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.validator.__name__}.")
-
-
-def _handle_nullability_and_conditions_for_is_valid(func: FuncSig) -> FuncSig:
-    @functools.wraps(func)
-    def wrapper(*args: Any) -> Any:
-        instance, value = args
-
-        if value is None:
-            return instance._nullable
-
-        ret = func(*args)
-        if not ret:
-            return False
-
-        for condition in instance.conditions:
-            if not condition(instance(value)):
-                return False
-        else:
-            return True
-    return cast(FuncSig, wrapper)
-
-
-def _handle_nullability_and_conditions_for_convert(func: FuncSig) -> FuncSig:
-    @functools.wraps(func)
-    def wrapper(*args: Any) -> Any:
-        instance, value = args
-
-        if value is None:
-            if instance._nullable:
-                return None
-            else:
-                raise TypeConversionError(instance, value)
-        else:
-            try:
-                ret = func(*args)
-            except typepy.TypeConversionError:
-                raise TypeConversionError(instance, value)
-
-            for condition in instance.conditions:
-                if not condition(ret):
-                    raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
-
-            return ret
-    return cast(FuncSig, wrapper)
-
-
-class Anything:
-    def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
-        self.value = value
-
-    def is_type(self) -> bool:
-        return True
-
-    def convert(self) -> Any:
-        return self.value
 
 
 class Condition:
@@ -111,13 +53,37 @@ class Validator:
         self.conditions.append(Condition(condition=condition, name=name))
         return self
 
-    @_handle_nullability_and_conditions_for_is_valid
     def is_valid(self, value: Any) -> bool:
-        return self.validator(value, strict_level=self._strict).is_type()
+        if value is None:
+            return self._nullable
 
-    @_handle_nullability_and_conditions_for_convert
+        ret = self.validator(value, strict_level=self._strict).is_type()
+        if not ret:
+            return False
+
+        for condition in self.conditions:
+            if not condition(self(value)):
+                return False
+        else:
+            return True
+
     def convert(self, value: Any) -> Any:
-        return self.validator(value, strict_level=self._strict).convert()
+        if value is None:
+            if self._nullable:
+                return None
+            else:
+                raise TypeConversionError(self, value)
+        else:
+            try:
+                ret = self.validator(value, strict_level=self._strict).convert()
+            except typepy.TypeConversionError:
+                raise TypeConversionError(self, value)
+
+            for condition in self.conditions:
+                if not condition(ret):
+                    raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
+
+            return ret
 
     def _try_eval(self, value: Any) -> Any:
         if isinstance(value, str):
@@ -130,6 +96,16 @@ class Validator:
 
 
 class AnythingValidator(Validator):
+    class Anything:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+            self.value = value
+
+        def is_type(self) -> bool:
+            return True
+
+        def convert(self) -> Any:
+            return self.value
+
     validator = Anything
 
 
@@ -264,40 +240,56 @@ class DateTimeValidator(Validator):
 
 
 class PathValidator(Validator):
+    class Path:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+            self.value = value
+
+        def is_type(self) -> bool:
+            try:
+                pathlib.Path(self.value)
+            except Exception:
+                return False
+            else:
+                return True
+
+        def convert(self) -> Any:
+            return pathlib.Path(self.value)
+
     validator = Path
 
-    @_handle_nullability_and_conditions_for_is_valid
-    def is_valid(self, value: Any) -> bool:
-        try:
-            Path(value)
-        except Exception:
-            return False
-        else:
-            return True
 
-    @_handle_nullability_and_conditions_for_convert
-    def convert(self, value: Any) -> Any:
-        return self.validator(value)
+class FileValidator(Validator):
+    class File:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+            self.value = value
 
+        def is_type(self) -> bool:
+            if PathValidator().is_valid(self.value):
+                return self.value is None or pathlib.Path(self.value).is_file()
+            else:
+                return False
 
-class FileValidator(PathValidator):
+        def convert(self) -> Any:
+            return pathmagic.File(self.value)
+
     validator = File
 
-    def is_valid(self, value: Any) -> bool:
-        if super().is_valid(value):
-            return value is None or Path(value).is_file()
-        else:
-            return False
 
+class DirValidator(Validator):
+    class Dir:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+            self.value = value
 
-class DirValidator(PathValidator):
+        def is_type(self) -> bool:
+            if PathValidator().is_valid(self.value):
+                return self.value is None or pathlib.Path(self.value).is_dir()
+            else:
+                return False
+
+        def convert(self) -> Any:
+            return pathmagic.Dir(self.value)
+
     validator = Dir
-
-    def is_valid(self, value: Any) -> bool:
-        if super().is_valid(value):
-            return value is None or Path(value).is_dir()
-        else:
-            return False
 
 
 class Validate:
@@ -309,25 +301,26 @@ class Validate:
         list: ListValidator,
         dict: DictionaryValidator,
         dt.date: DateTimeValidator,
-        Path: PathValidator,
-        File: FileValidator,
-        Dir: DirValidator,
+        pathlib.Path: PathValidator,
+        pathmagic.File: FileValidator,
+        pathmagic.Dir: DirValidator,
     }
 
     def Type(self, dtype: Any) -> Validator:
         validator = self._types.get(dtype)
 
         if validator is None:
+            try:
+                if issubclass(dtype, Validator):
+                    validator = dtype
+            except TypeError:
+                pass
+
+        if validator is None:
             for key, val in self._types.items():
                 try:
                     if issubclass(dtype, key):
                         validator = val
-                except TypeError:
-                    pass
-
-                try:
-                    if issubclass(dtype, Validator):
-                        validator = val()
                 except TypeError:
                     pass
 
