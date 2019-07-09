@@ -48,7 +48,7 @@ def _handle_nullability_and_conditions_for_convert(func: FuncSig) -> FuncSig:
             if instance._nullable:
                 return None
             else:
-                raise TypeError(f"Expected {instance.validator.__name__}, got {type(value).__name__}.")
+                raise TypeConversionError(instance, value)
         else:
             try:
                 ret = func(*args)
@@ -91,10 +91,10 @@ class Condition:
 class Validator:
     validator = None
 
-    def __init__(self) -> None:
-        self._nullable = False
-        self._strict = typepy.StrictLevel.MIN
+    def __init__(self, nullable: bool = False, strict: bool = False) -> None:
+        self._nullable = self._strict = None  # type: bool
         self.conditions: List[Condition] = []
+        self.nullable(nullable).strict(strict)
 
     def __call__(self, value: Any) -> Any:
         return self.convert(value)
@@ -325,7 +325,17 @@ class Validate:
                 except TypeError:
                     pass
 
+                try:
+                    if issubclass(dtype, Validator):
+                        validator = val()
+                except TypeError:
+                    pass
+
         return dtype if validator is None else validator()
+
+    @property
+    def Anything(self) -> AnythingValidator:
+        return AnythingValidator()
 
     @property
     def Bool(self) -> BoolValidator:
