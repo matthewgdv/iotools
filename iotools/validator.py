@@ -4,6 +4,7 @@ import datetime as dt
 from typing import Any, List, Callable
 import pathlib
 import enum
+import copy
 
 import typepy
 
@@ -32,40 +33,50 @@ class Condition:
         return self.condition(input_val)
 
 
+class GenericMeta(type):
+    def __getitem__(cls, key: Any) -> GenericMeta:
+        newcls = copy.deepcopy(cls)
+        newcls._default_generic_type = key
+        return newcls
+
+
 class Validator:
     dtype = None
     converter = None
 
     def __init__(self, *, nullable: bool = False, strict: bool = False) -> None:
-        self._nullable = self._strict = None  # type: bool
-        self._choices: list = None
-        self._conditions: List[Condition] = []
-        self.nullable(nullable).strict(strict)
+        self.nullable = self.strict = None  # type: bool
+        self.choices: list = None
+        self.conditions: List[Condition] = []
+        self.set_nullable(nullable).set_strict(strict)
+
+    def __repr__(self) -> str:
+        return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'dtype' in attr else val.__name__}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
 
     def __call__(self, value: Any) -> Any:
         return self.convert(value)
 
-    def nullable(self, nullable: bool = True) -> Validator:
-        self._nullable = nullable
+    def set_nullable(self, nullable: bool = True) -> Validator:
+        self.nullable = nullable
         return self
 
-    def strict(self, strict: bool = True) -> Validator:
-        self._strict = typepy.StrictLevel.MAX if strict else typepy.StrictLevel.MIN
+    def set_strict(self, strict: bool = True) -> Validator:
+        self.strict = strict
         return self
 
-    def choices(self, enumeration: enum.Enum) -> Validator:
-        self._choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
+    def set_choices(self, enumeration: enum.Enum) -> Validator:
+        self.choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
         return self
 
-    def condition(self, condition: Callable, name: str = None) -> Validator:
-        self._conditions.append(Condition(condition=condition, name=name))
+    def add_condition(self, condition: Callable, name: str = None) -> Validator:
+        self.conditions.append(Condition(condition=condition, name=name))
         return self
 
     def is_valid(self, value: Any) -> bool:
         if value is None:
             return self._nullable
 
-        ret = self.converter(value, strict_level=self._strict).is_type()
+        ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type()
         if not ret:
             return False
 
@@ -142,11 +153,11 @@ class StringValidator(Validator):
     converter = typepy.String
 
     def max_len(self, length: int) -> StringValidator:
-        self._conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
+        self.conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
         return self
 
     def min_len(self, length: int) -> StringValidator:
-        self._conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
+        self.conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
         return self
 
 
@@ -155,11 +166,11 @@ class IntegerValidator(Validator):
     converter = typepy.Integer
 
     def max_value(self, value: int) -> IntegerValidator:
-        self._conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
+        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
         return self
 
     def min_value(self, value: int) -> IntegerValidator:
-        self._conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
+        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
         return self
 
 
@@ -168,37 +179,38 @@ class FloatValidator(Validator):
     converter = typepy.RealNumber
 
     def max_value(self, value: float) -> FloatValidator:
-        self._conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
+        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
         return self
 
     def min_value(self, value: float) -> FloatValidator:
-        self._conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
+        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
         return self
 
 
-class ListValidator(Validator):
+class ListValidator(Validator, metaclass=GenericMeta):
     dtype = list
     converter = typepy.List
+    _default_generic_type = None
 
     def __init__(self) -> None:
         super().__init__()
-        self.dtype = None
+        self.val_dtype = self._default_generic_type
 
     def __getitem__(self, key) -> ListValidator:
         return self.of_type(key)
 
     def of_type(self, dtype: Any) -> ListValidator:
-        self.dtype = dtype
+        self.val_dtype = dtype
         return self
 
     def is_valid(self, value: Any) -> bool:
         value = self._try_eval(value)
 
-        if self.dtype is None:
+        if self.val_dtype is None:
             return super().is_valid(value)
         else:
             if super().is_valid(value):
-                validator = Validate.Type(self.dtype).nullable()
+                validator = Validate.Type(self.val_dtype).nullable()
                 return all([validator.is_valid(item) for item in super().convert(value)])
             else:
                 return False
@@ -206,20 +218,21 @@ class ListValidator(Validator):
     def convert(self, value: Any) -> list:
         value = self._try_eval(value)
 
-        if self.dtype is None:
+        if self.val_dtype is None:
             return super().convert(value)
         else:
-            validator = Validate.Type(self.dtype).nullable()
+            validator = Validate.Type(self.val_dtype).nullable()
             return [validator(item) for item in super().convert(value)]
 
 
-class DictionaryValidator(Validator):
+class DictionaryValidator(Validator, metaclass=GenericMeta):
     dtype = dict
     converter = typepy.Dictionary
+    _default_generic_type = None
 
     def __init__(self) -> None:
         super().__init__()
-        self.key_dtype, self.val_dtype = (None, None)
+        self.key_dtype, self.val_dtype = Maybe(self._default_generic_type).else_((None, None))
 
     def __getitem__(self, key) -> ListValidator:
         key_dtype, val_dtype = key
@@ -258,11 +271,11 @@ class DateTimeValidator(Validator):
     converter = typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
-        self._conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
+        self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
         return self
 
     def after(self, date: dt.date) -> DateTimeValidator:
-        self._conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
+        self.conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
         return self
 
     def convert(self, value) -> DateTime:
