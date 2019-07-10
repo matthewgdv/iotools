@@ -104,7 +104,7 @@ class IOHandler:
 
         if outdir:
             backup = self.outfile.contents if outfile else ""
-            self.outdir.clear().newfile("output.txt").contents = backup
+            self.outdir.clear().newfile("output", "txt").contents = backup
 
     def _run_as_gui(self, arguments: Dict[str, Any]) -> None:
         if arguments:
@@ -184,7 +184,7 @@ class IOHandler:
 
         workfolder = Dir(current_dir).newdir("__workfolders__").newdir(self.app_name)
         work_in, work_out = workfolder.newdir("input"), workfolder.newdir("output")
-        self.latest, self.log, self.outdir, self.outfile = work_in.newfile("latest.pkl"), work_in.newfile("log.txt"), work_out, work_out.newfile("output.txt")
+        self.latest, self.log, self.outdir, self.outfile = work_in.newfile("latest", "pkl"), work_in.newfile("log", "txt"), work_out, work_out.newfile("output", "txt")
 
 
 class Argument:

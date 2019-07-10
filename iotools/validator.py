@@ -15,7 +15,7 @@ from miscutils import issubclass_safe
 
 class TypeConversionError(typepy.TypeConversionError):
     def __init__(self, validator: Validator, value: Any) -> None:
-        super().__init__(f"Failed {'strict' if validator._strict else 'permissive'}, {'' if validator._nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.validator.__name__}.")
+        super().__init__(f"Failed {'strict' if validator._strict else 'permissive'}, {'' if validator._nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
 
 
 class Condition:
@@ -33,7 +33,7 @@ class Condition:
 
 
 class Validator:
-    validator = None
+    converter = dtypes = None
 
     def __init__(self, *, nullable: bool = False, strict: bool = False) -> None:
         self._nullable = self._strict = None  # type: bool
@@ -64,7 +64,7 @@ class Validator:
         if value is None:
             return self._nullable
 
-        ret = self.validator(value, strict_level=self._strict).is_type()
+        ret = self.converter(value, strict_level=self._strict).is_type()
         if not ret:
             return False
 
@@ -83,7 +83,7 @@ class Validator:
                 raise TypeConversionError(self, value)
         else:
             try:
-                ret = self.validator(value, strict_level=self._strict).convert()
+                ret = self.converter(value, strict_level=self._strict).convert()
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
@@ -117,15 +117,26 @@ class AnythingValidator(Validator):
         def convert(self) -> Any:
             return self.value
 
-    validator = Anything
+    converter = Anything
+
+
+class UnknownTypeValidator(Validator):
+    converter = AnythingValidator.Anything
+
+    def __init__(self, constructor: Any, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._constructor = constructor
+
+    def convert(self, value) -> Any:
+        return self._constructor(super().convert(value))
 
 
 class BoolValidator(Validator):
-    validator = typepy.Bool
+    converter = typepy.Bool
 
 
 class StringValidator(Validator):
-    validator = typepy.String
+    converter = typepy.String
 
     def max_len(self, length: int) -> StringValidator:
         self.conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
@@ -137,7 +148,7 @@ class StringValidator(Validator):
 
 
 class IntegerValidator(Validator):
-    validator = typepy.Integer
+    converter = typepy.Integer
 
     def max_value(self, value: int) -> IntegerValidator:
         self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
@@ -149,7 +160,7 @@ class IntegerValidator(Validator):
 
 
 class FloatValidator(Validator):
-    validator = typepy.RealNumber
+    converter = typepy.RealNumber
 
     def max_value(self, value: float) -> FloatValidator:
         self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
@@ -161,7 +172,7 @@ class FloatValidator(Validator):
 
 
 class ListValidator(Validator):
-    validator = typepy.List
+    converter = typepy.List
 
     def __init__(self) -> None:
         super().__init__()
@@ -181,7 +192,7 @@ class ListValidator(Validator):
             return super().is_valid(value)
         else:
             if super().is_valid(value):
-                validator = validate.Type(self.dtype).nullable()
+                validator = Validate.Type(self.dtype).nullable()
                 return all([validator.is_valid(item) for item in super().convert(value)])
             else:
                 return False
@@ -192,12 +203,12 @@ class ListValidator(Validator):
         if self.dtype is None:
             return super().convert(value)
         else:
-            validator = validate.Type(self.dtype).nullable()
+            validator = Validate.Type(self.dtype).nullable()
             return [validator(item) for item in super().convert(value)]
 
 
 class DictionaryValidator(Validator):
-    validator = typepy.Dictionary
+    converter = typepy.Dictionary
 
     def __init__(self) -> None:
         super().__init__()
@@ -219,7 +230,7 @@ class DictionaryValidator(Validator):
         else:
             if super().is_valid(value):
                 converted, anything = super().convert(value), AnythingValidator()
-                key_validator, val_validator = validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
+                key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), Validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
                 return all([key_validator.is_valid(item) for item in converted.keys()]) and all([val_validator.is_valid(item) for item in converted.values()])
             else:
                 return False
@@ -231,12 +242,12 @@ class DictionaryValidator(Validator):
             return super().convert(value)
         else:
             converted, anything = super().convert(value), AnythingValidator()
-            key_validator, val_validator = validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
+            key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), Validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
 
 class DateTimeValidator(Validator):
-    validator = typepy.DateTime
+    converter = typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
         self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
@@ -266,7 +277,7 @@ class PathValidator(Validator):
         def convert(self) -> Any:
             return pathlib.Path(self.value)
 
-    validator = Path
+    converter = Path
 
 
 class FileValidator(Validator):
@@ -283,7 +294,7 @@ class FileValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.File(self.value)
 
-    validator = File
+    converter = File
 
 
 class DirValidator(Validator):
@@ -300,10 +311,10 @@ class DirValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.Dir(self.value)
 
-    validator = Dir
+    converter = Dir
 
 
-class Validate:
+class Validators:
     _types = {
         int: IntegerValidator,
         float: FloatValidator,
@@ -320,16 +331,17 @@ class Validate:
     def Type(self, dtype: Any) -> Validator:
         validator = self._types.get(dtype)
 
-        if validator is None:
+        if validator is not None:
+            return validator()
+        else:
             if issubclass_safe(dtype, Validator):
-                validator = dtype
-
-        if validator is None:
-            for key, val in self._types.items():
-                if issubclass_safe(dtype, key):
-                    validator = val
-
-        return dtype if validator is None else validator()
+                return dtype()
+            else:
+                for key, val in self._types.items():
+                    if issubclass_safe(dtype, key):
+                        return val()
+                else:
+                    return UnknownTypeValidator(constructor=dtype)
 
     @property
     def Anything(self) -> AnythingValidator:
@@ -376,4 +388,4 @@ class Validate:
         return DirValidator()
 
 
-validate = Validate()
+Validate = Validators()
