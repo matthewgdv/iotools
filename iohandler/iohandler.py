@@ -16,10 +16,11 @@ from miscutils import is_running_in_ipython
 from .typevalidator import TypeValidator
 
 # TODO: implement Enum support for choices
+# TODO: implement argument profiles
 
 
 class RunMode(Enum):
-    Smart, CommandLine, Gui, Programmatic = "smart", "commandline", "gui", "programmatic"
+    SMART, COMMANDLINE, GUI, PROGRAMMATIC = "smart", "commandline", "gui", "programmatic"
 
 
 class ArgType(Enum):
@@ -67,13 +68,13 @@ class IOHandler:
         self._arguments.append(arg)
 
     def collect_input(self, arguments: Dict[str, Any] = None, logging: bool = True) -> None:
-        if self.run_mode == RunMode.CommandLine:
+        if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
-        elif self.run_mode == RunMode.Gui:
+        elif self.run_mode == RunMode.GUI:
             self._run_as_gui(arguments=arguments)
-        elif self.run_mode == RunMode.Programmatic:
+        elif self.run_mode == RunMode.PROGRAMMATIC:
             self._run_programatically(arguments=arguments)
-        elif self.run_mode == RunMode.Smart:
+        elif self.run_mode == RunMode.SMART:
             if is_running_in_ipython() or inspect.getmodule(inspect.stack()[1][0]).__name__ != "__main__":
                 self._run_programatically(arguments=arguments)
             else:
