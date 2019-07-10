@@ -8,7 +8,7 @@ import enum
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime
+from subtypes import DateTime, Enum
 import pathmagic
 from miscutils import issubclass_safe
 
@@ -33,7 +33,8 @@ class Condition:
 
 
 class Validator:
-    converter = dtypes = None
+    dtype = None
+    converter = None
 
     def __init__(self, *, nullable: bool = False, strict: bool = False) -> None:
         self._nullable = self._strict = None  # type: bool
@@ -132,46 +133,51 @@ class UnknownTypeValidator(Validator):
 
 
 class BoolValidator(Validator):
+    dtype = bool
     converter = typepy.Bool
 
 
 class StringValidator(Validator):
+    dtype = str
     converter = typepy.String
 
     def max_len(self, length: int) -> StringValidator:
-        self.conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
+        self._conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
         return self
 
     def min_len(self, length: int) -> StringValidator:
-        self.conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
+        self._conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
         return self
 
 
 class IntegerValidator(Validator):
+    dtype = int
     converter = typepy.Integer
 
     def max_value(self, value: int) -> IntegerValidator:
-        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
+        self._conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
         return self
 
     def min_value(self, value: int) -> IntegerValidator:
-        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
+        self._conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
         return self
 
 
 class FloatValidator(Validator):
+    dtype = float
     converter = typepy.RealNumber
 
     def max_value(self, value: float) -> FloatValidator:
-        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
+        self._conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
         return self
 
     def min_value(self, value: float) -> FloatValidator:
-        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
+        self._conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
         return self
 
 
 class ListValidator(Validator):
+    dtype = list
     converter = typepy.List
 
     def __init__(self) -> None:
@@ -208,6 +214,7 @@ class ListValidator(Validator):
 
 
 class DictionaryValidator(Validator):
+    dtype = dict
     converter = typepy.Dictionary
 
     def __init__(self) -> None:
@@ -247,14 +254,15 @@ class DictionaryValidator(Validator):
 
 
 class DateTimeValidator(Validator):
+    dtype = dt.date
     converter = typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
-        self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
+        self._conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
         return self
 
     def after(self, date: dt.date) -> DateTimeValidator:
-        self.conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
+        self._conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
         return self
 
     def convert(self, value) -> DateTime:
@@ -262,6 +270,8 @@ class DateTimeValidator(Validator):
 
 
 class PathValidator(Validator):
+    dtype = pathlib.Path
+
     class Path:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -281,6 +291,8 @@ class PathValidator(Validator):
 
 
 class FileValidator(Validator):
+    dtype = pathmagic.File
+
     class File:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -298,6 +310,8 @@ class FileValidator(Validator):
 
 
 class DirValidator(Validator):
+    dtype = pathmagic.Dir
+
     class Dir:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -314,78 +328,31 @@ class DirValidator(Validator):
     converter = Dir
 
 
-class Validators:
-    _types = {
-        int: IntegerValidator,
-        float: FloatValidator,
-        bool: BoolValidator,
-        str: StringValidator,
-        list: ListValidator,
-        dict: DictionaryValidator,
-        dt.date: DateTimeValidator,
-        pathlib.Path: PathValidator,
-        pathmagic.File: FileValidator,
-        pathmagic.Dir: DirValidator,
-    }
+class Validate(Enum):
+    Int = IntegerValidator
+    Float = FloatValidator
+    Bool = BoolValidator
+    Str = StringValidator
+    List = ListValidator
+    Dict = DictionaryValidator
+    DateTime = DateTimeValidator
+    Path = PathValidator
+    File = FileValidator
+    Dir = DirValidator
 
-    def Type(self, dtype: Any) -> Validator:
-        validator = self._types.get(dtype)
+    @classmethod
+    def Type(self, dtype: Any, **kwargs: Any) -> Validator:
+        dtypes = {member.value.dtype: member.value for member in self}
+        validator = dtypes.get(dtype)
 
         if validator is not None:
-            return validator()
+            return validator(**kwargs)
         else:
             if issubclass_safe(dtype, Validator):
-                return dtype()
+                return dtype(**kwargs)
             else:
-                for key, val in self._types.items():
+                for key, val in dtypes.items():
                     if issubclass_safe(dtype, key):
-                        return val()
+                        return val(**kwargs)
                 else:
-                    return UnknownTypeValidator(constructor=dtype)
-
-    @property
-    def Anything(self) -> AnythingValidator:
-        return AnythingValidator()
-
-    @property
-    def Bool(self) -> BoolValidator:
-        return BoolValidator()
-
-    @property
-    def String(self) -> StringValidator:
-        return StringValidator()
-
-    @property
-    def Int(self) -> IntegerValidator:
-        return IntegerValidator()
-
-    @property
-    def Float(self) -> FloatValidator:
-        return FloatValidator()
-
-    @property
-    def List(self) -> ListValidator:
-        return ListValidator()
-
-    @property
-    def Dict(self) -> DictionaryValidator:
-        return DictionaryValidator()
-
-    @property
-    def DateTime(self) -> DateTimeValidator:
-        return DateTimeValidator()
-
-    @property
-    def Path(self) -> PathValidator:
-        return PathValidator()
-
-    @property
-    def File(self) -> FileValidator:
-        return FileValidator()
-
-    @property
-    def Dir(self) -> DirValidator:
-        return DirValidator()
-
-
-Validate = Validators()
+                    return UnknownTypeValidator(constructor=dtype, **kwargs)
