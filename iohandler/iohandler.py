@@ -36,7 +36,7 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing a log of arguments passed to it in previous runs, and for providing output.
     """
 
-    def __init__(self, app_name: str = None, app_desc: str = "", strict_argnames: bool = True, run_mode: str = RunMode.Smart) -> None:
+    def __init__(self, app_name: str = None, app_desc: str = "", strict_argnames: bool = True, run_mode: str = RunMode.SMART) -> None:
         self.app_name, self.app_desc, self.strict, self.run_mode = app_name, app_desc, strict_argnames, run_mode
         self.outfile = self.latest = self.log = None  # type: File
         self.outdir = self.resources = None  # type: Dir
