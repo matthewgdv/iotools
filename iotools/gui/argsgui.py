@@ -8,9 +8,11 @@ from PyQt5 import QtWidgets
 
 from subtypes import DateTime, Frame
 from pathmagic import File, Dir
+from miscutils import issubclass_safe
 
 from .gui import FormGui
 from ..widget.widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+from ..validator.validator import Validator
 
 if TYPE_CHECKING:
     from ..iohandler import IOHandler, Argument
@@ -61,26 +63,27 @@ class WidgetFrame(WidgetManager):
     @classmethod
     def from_arg(cls, arg: Argument) -> WidgetFrame:
         list_like = (list, tuple, set)
+        dtype = arg.argtype.dtype if issubclass_safe(arg.argtype, Validator) else arg.argtype
 
         if arg.choices is not None:
             return WidgetFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
-        elif arg.argtype is Dict[str, bool]:
+        elif dtype is dict and arg.argtype._default_generic_type == (str, bool):
             return WidgetFrame(argument=arg, manager=CheckBar(choices=arg.default))
-        elif arg.argtype is bool:
+        elif dtype is bool:
             return WidgetFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
-        elif arg.argtype in {int, float}:
+        elif dtype in {int, float}:
             return WidgetFrame(argument=arg, manager=Entry(state=arg.default))
-        elif arg.argtype in {File, Dir}:
+        elif dtype in {File, Dir}:
             return WidgetFrame(argument=arg, manager=(FileSelect if arg.argtype is File else DirSelect)(state=arg.default))
-        elif arg.argtype in {dt.date, dt.datetime, DateTime}:
+        elif dtype in {dt.date, dt.datetime, DateTime}:
             return WidgetFrame(argument=arg, manager=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
-        elif arg.argtype is str or arg.argtype is None:
+        elif dtype is str or dtype is None:
             return WidgetFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
-        elif arg.argtype in {pd.DataFrame, Frame}:
+        elif dtype in {pd.DataFrame, Frame}:
             return WidgetFrame(argument=arg, manager=Table(state=arg.default))
-        elif arg.argtype in list_like or (arg.argtype.__module__ == "typing" and arg.argtype.__origin__ in list_like):
+        elif dtype in list_like:
             return WidgetFrame(argument=arg, manager=ListTable(state=arg.default))
-        elif arg.argtype is dict or (arg.argtype.__module__ == "typing" and arg.argtype.__origin__ is dict):
+        elif dtype is dict:
             return WidgetFrame(argument=arg, manager=DictTable(state=arg.default))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")

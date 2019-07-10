@@ -1,4 +1,9 @@
-__all__ = ["TypeValidator", "IOHandler", "Argument", "RunMode", "ArgType"]
+__all__ = [
+    "IOHandler", "RunMode", "ArgType", "Validate",
+    "Gui", "HtmlGui", "FormGui", "ProgressBarGui",
+    "Validate",
+]
 
-from .iohandler import Argument, IOHandler, RunMode, ArgType
-from .typevalidator import TypeValidator
+from .iohandler import IOHandler, RunMode, ArgType
+from .gui import Gui, HtmlGui, FormGui, ProgressBarGui
+from .validator import Validate

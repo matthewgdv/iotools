@@ -16,7 +16,7 @@ from miscutils import issubclass_safe
 
 class TypeConversionError(typepy.TypeConversionError):
     def __init__(self, validator: Validator, value: Any) -> None:
-        super().__init__(f"Failed {'strict' if validator._strict else 'permissive'}, {'' if validator._nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
+        super().__init__(f"Failed {'strict' if validator.strict else 'permissive'}, {'' if validator.nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
 
 
 class Condition:
@@ -44,14 +44,17 @@ class Validator:
     dtype = None
     converter = None
 
-    def __init__(self, *, nullable: bool = False, strict: bool = False) -> None:
+    def __init__(self, *, nullable: bool = False, strict: bool = False, choices: enum.Enum = None) -> None:
         self.nullable = self.strict = None  # type: bool
         self.choices: list = None
         self.conditions: List[Condition] = []
+
         self.set_nullable(nullable).set_strict(strict)
+        if choices is not None:
+            self.set_choices(choices)
 
     def __repr__(self) -> str:
-        return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'dtype' in attr else val.__name__}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
+        return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'dtype' in attr else (None if val is None else val.__name__)}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
 
     def __call__(self, value: Any) -> Any:
         return self.convert(value)
@@ -74,7 +77,7 @@ class Validator:
 
     def is_valid(self, value: Any) -> bool:
         if value is None:
-            return self._nullable
+            return self.nullable
 
         ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type()
         if not ret:
@@ -89,20 +92,20 @@ class Validator:
 
     def convert(self, value: Any) -> Any:
         if value is None:
-            if self._nullable:
+            if self.nullable:
                 return None
             else:
                 raise TypeConversionError(self, value)
         else:
             try:
-                ret = self.converter(value, strict_level=self._strict).convert()
+                ret = self.converter(value, strict_level=self.strict).convert()
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
-            if self._choices is not None and ret not in self._choices:
-                raise ValueError(f"Value '{value}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self._choices])}.")
+            if self.choices is not None and ret not in self.choices:
+                raise ValueError(f"Value '{value}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self.choices])}.")
 
-            for condition in self._conditions:
+            for condition in self.conditions:
                 if not condition(ret):
                     raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
 
@@ -192,8 +195,8 @@ class ListValidator(Validator, metaclass=GenericMeta):
     converter = typepy.List
     _default_generic_type = None
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self.val_dtype = self._default_generic_type
 
     def __getitem__(self, key) -> ListValidator:
@@ -210,7 +213,7 @@ class ListValidator(Validator, metaclass=GenericMeta):
             return super().is_valid(value)
         else:
             if super().is_valid(value):
-                validator = Validate.Type(self.val_dtype).nullable()
+                validator = Validate.Type(self.val_dtype, nullable=True)
                 return all([validator.is_valid(item) for item in super().convert(value)])
             else:
                 return False
@@ -221,7 +224,7 @@ class ListValidator(Validator, metaclass=GenericMeta):
         if self.val_dtype is None:
             return super().convert(value)
         else:
-            validator = Validate.Type(self.val_dtype).nullable()
+            validator = Validate.Type(self.val_dtype, nullable=True)
             return [validator(item) for item in super().convert(value)]
 
 
@@ -230,15 +233,15 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
     converter = typepy.Dictionary
     _default_generic_type = None
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
         self.key_dtype, self.val_dtype = Maybe(self._default_generic_type).else_((None, None))
 
-    def __getitem__(self, key) -> ListValidator:
+    def __getitem__(self, key) -> DictionaryValidator:
         key_dtype, val_dtype = key
         return self.of_types(key_dtype=key_dtype, val_dtype=val_dtype)
 
-    def of_types(self, key_dtype: Any, val_dtype: Any) -> ListValidator:
+    def of_types(self, key_dtype: Any, val_dtype: Any) -> DictionaryValidator:
         self.key_dtype, self.val_dtype = key_dtype, val_dtype
         return self
 
@@ -250,7 +253,7 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
         else:
             if super().is_valid(value):
                 converted, anything = super().convert(value), AnythingValidator()
-                key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), Validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
+                key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything), nullable=True), Validate.Type(Maybe(self.val_dtype).else_(anything), nullable=True)
                 return all([key_validator.is_valid(item) for item in converted.keys()]) and all([val_validator.is_valid(item) for item in converted.values()])
             else:
                 return False
@@ -262,7 +265,7 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
             return super().convert(value)
         else:
             converted, anything = super().convert(value), AnythingValidator()
-            key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything)).nullable(), Validate.Type(Maybe(self.val_dtype).else_(anything)).nullable()
+            key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything), nullable=True), Validate.Type(Maybe(self.val_dtype).else_(anything), nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
 

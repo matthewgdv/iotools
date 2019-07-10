@@ -31,9 +31,8 @@ class Gui(Qcore.QObject):
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        if ex_type is not None:
-            print(ex_type, ex_value, ex_traceback, sep="\n")
-        self.start_loop()
+        if ex_type is None:
+            self.start_loop()
 
     def start_loop(self) -> None:
         self.widget.show()

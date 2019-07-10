@@ -4,17 +4,18 @@ import argparse
 import inspect
 import os
 import sys
-import typing
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, Frame, DateTime, Str
+from subtypes import Enum, Frame, Str
 from pathmagic import File, Dir
 from miscutils import is_running_in_ipython
 
 from .widget.widget import WidgetManager
 from .typevalidator import TypeValidator
 from .gui.argsgui import ArgsGui
+from .validator.validator import Validate
+from .validator import StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
 
 # TODO: implement Enum support for choices
 # TODO: implement argument profiles
@@ -25,9 +26,9 @@ class RunMode(Enum):
 
 
 class ArgType(Enum):
-    String, Integer, Float, Boolean, List, Dict, Set, Tuple = str, int, float, bool, typing.List, typing.Dict, set, tuple
-    File, Dir = File, Dir
-    Frame, DateTime = Frame, DateTime
+    String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
+    Path, File, Dir = PathValidator, FileValidator, DirValidator
+    DateTime, Frame = DateTimeValidator, Frame
 
 
 class IOHandler:
@@ -212,36 +213,10 @@ class Argument:
 
     @value.setter
     def value(self, val: Any) -> None:
-        self._validate_and_set(val)
-
-    def _validate_and_set(self, val: Any) -> None:
-        self._validate_nullable(val)
-        coerced_val = val if self.argtype is None or val is None else self._validate_and_coerce_argtype(val)
-
-        if self.choices is not None:
-            self._validate_choices(coerced_val)
-        if self.condition is not None:
-            self._validate_condition(coerced_val)
-
-        self._value = coerced_val
-
-    def _validate_nullable(self, val: Any) -> None:
-        if val is None and not self.nullable:
-            raise TypeError(f"{self} may not be 'None'.")
-
-    def _validate_and_coerce_argtype(self, val: Any) -> Any:
-        try:
-            return TypeValidator(dtype=self.argtype, optional=True)(val)
-        except TypeValidator.UnknownTypeError:
-            return self.argtype(val)
-
-    def _validate_choices(self, val: Any) -> None:
-        if val is not None and val not in self.choices:
-            raise ValueError(f"{self} value '{val}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self.choices])}.")
-
-    def _validate_condition(self, val: Any) -> None:
-        if val is not None and not self.condition(val):
-            raise ValueError(f"{self} value '{val}' does not satisfy the condition: '{self.condition}'.")
+        validator = Validate.Type(self.argtype, nullable=self.nullable, choices=self.choices)
+        if self.condition:
+            validator.conditions = [self.condition]
+        self._value = validator.convert(val)
 
 
 class Condition:
