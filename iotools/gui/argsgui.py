@@ -1,17 +1,19 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Dict, List, Any
+from typing import Dict, List, Any, TYPE_CHECKING
 
 import pandas as pd
+from PyQt5 import QtWidgets
 
 from subtypes import DateTime, Frame
 from pathmagic import File, Dir
-from easygui import FormGui, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
-from easygui.widget import WidgetManager
-from PyQt5 import QtWidgets
 
-from .iohandler import IOHandler, Argument
+from .gui import FormGui
+from ..widget.widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+
+if TYPE_CHECKING:
+    from ..iohandler import IOHandler, Argument
 
 
 class WidgetFrame(WidgetManager):

@@ -13,7 +13,7 @@ To install use pip:
 
 Or clone the repo:
 
-    $ git clone https://github.com/matthewgdv/[project_name].git
+    $ git clone https://github.com/matthewgdv/iotools.git
     $ python setup.py install
 
 
@@ -32,7 +32,7 @@ You can contribute in many ways:
 Report Bugs
 --------------------
 
-Report bugs at https://github.com/matthewgdv/iohandler/issues
+Report bugs at https://github.com/matthewgdv/iotools/issues
 
 If you are reporting a bug, please include:
 
@@ -58,7 +58,7 @@ The repository could always use more documentation, whether as part of the offic
 Submit Feedback
 --------------------
 
-The best way to send feedback is to file an issue at https://github.com/matthewgdv/iohandler/issues.
+The best way to send feedback is to file an issue at https://github.com/matthewgdv/iotools/issues.
 
 If you are proposing a new feature:
 

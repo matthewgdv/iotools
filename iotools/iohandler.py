@@ -10,10 +10,11 @@ from typing import Any, Callable, Dict, List, Union
 from maybe import Maybe
 from subtypes import Enum, Frame, DateTime, Str
 from pathmagic import File, Dir
-from easygui.widget import WidgetManager
 from miscutils import is_running_in_ipython
 
+from .widget.widget import WidgetManager
 from .typevalidator import TypeValidator
+from .gui.argsgui import ArgsGui
 
 # TODO: implement Enum support for choices
 # TODO: implement argument profiles
@@ -106,8 +107,6 @@ class IOHandler:
             self.outdir.clear().newfile("output.txt").contents = backup
 
     def _run_as_gui(self, arguments: Dict[str, Any]) -> None:
-        from .gui import ArgsGui
-
         if arguments:
             self._set_new_argument_defaults(arguments)
         ArgsGui(handler=self)

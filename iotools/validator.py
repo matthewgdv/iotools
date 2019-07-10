@@ -3,12 +3,14 @@ from __future__ import annotations
 import datetime as dt
 from typing import Any, List, Callable
 import pathlib
+import enum
 
 import typepy
 
 from maybe import Maybe
 from subtypes import DateTime
 import pathmagic
+from miscutils import issubclass_safe
 
 
 class TypeConversionError(typepy.TypeConversionError):
@@ -33,9 +35,10 @@ class Condition:
 class Validator:
     validator = None
 
-    def __init__(self, nullable: bool = False, strict: bool = False) -> None:
+    def __init__(self, *, nullable: bool = False, strict: bool = False) -> None:
         self._nullable = self._strict = None  # type: bool
-        self.conditions: List[Condition] = []
+        self._choices: list = None
+        self._conditions: List[Condition] = []
         self.nullable(nullable).strict(strict)
 
     def __call__(self, value: Any) -> Any:
@@ -49,8 +52,12 @@ class Validator:
         self._strict = typepy.StrictLevel.MAX if strict else typepy.StrictLevel.MIN
         return self
 
+    def choices(self, enumeration: enum.Enum) -> Validator:
+        self._choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
+        return self
+
     def condition(self, condition: Callable, name: str = None) -> Validator:
-        self.conditions.append(Condition(condition=condition, name=name))
+        self._conditions.append(Condition(condition=condition, name=name))
         return self
 
     def is_valid(self, value: Any) -> bool:
@@ -61,9 +68,10 @@ class Validator:
         if not ret:
             return False
 
-        for condition in self.conditions:
-            if not condition(self(value)):
-                return False
+        try:
+            self.convert(value)
+        except ValueError:
+            return False
         else:
             return True
 
@@ -79,7 +87,10 @@ class Validator:
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
-            for condition in self.conditions:
+            if self._choices is not None and ret not in self._choices:
+                raise ValueError(f"Value '{value}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self._choices])}.")
+
+            for condition in self._conditions:
                 if not condition(ret):
                     raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
 
@@ -310,19 +321,13 @@ class Validate:
         validator = self._types.get(dtype)
 
         if validator is None:
-            try:
-                if issubclass(dtype, Validator):
-                    validator = dtype
-            except TypeError:
-                pass
+            if issubclass_safe(dtype, Validator):
+                validator = dtype
 
         if validator is None:
             for key, val in self._types.items():
-                try:
-                    if issubclass(dtype, key):
-                        validator = val
-                except TypeError:
-                    pass
+                if issubclass_safe(dtype, key):
+                    validator = val
 
         return dtype if validator is None else validator()
 

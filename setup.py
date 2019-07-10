@@ -9,12 +9,12 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="iohandler",
+    name="iotools",
     version=__version__,
     description="[short_project_description]",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/matthewgdv/iohandler",
+    url="https://github.com/matthewgdv/iotools",
     license="MIT",
     classifiers=[
       "Development Status :: 3 - Alpha",
