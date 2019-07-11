@@ -12,7 +12,6 @@ from pathmagic import File, Dir
 from miscutils import is_running_in_ipython
 
 from .widget.widget import WidgetManager
-from .typevalidator import TypeValidator
 from .gui.argsgui import ArgsGui
 from .validator.validator import Validate
 from .validator import StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
@@ -191,11 +190,15 @@ class IOHandler:
 class Argument:
     def __init__(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
                  choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
-        self.name, self.aliases, self.argtype, self.default, self.nullable = name, aliases, argtype, default, nullable
+        self.name, self.aliases, self.default, self.nullable = name, aliases, default, nullable
         self.choices, self.magnitude, self.info, self._value = choices, magnitude, info, default
 
         self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
         self.condition = Condition(condition) if condition is not None else None
+
+        self.argtype = Validate.Type(argtype, nullable=self.nullable, choices=self.choices)
+        if self.condition:
+            self.argtype.conditions = [self.condition]
 
         self.aliases = [self.name, *self.aliases] if self.aliases is not None else [self.name]
         self._argparse_aliases: List[str] = [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
@@ -213,10 +216,7 @@ class Argument:
 
     @value.setter
     def value(self, val: Any) -> None:
-        validator = Validate.Type(self.argtype, nullable=self.nullable, choices=self.choices)
-        if self.condition:
-            validator.conditions = [self.condition]
-        self._value = validator.convert(val)
+        self._value = self.argtype.convert(val)
 
 
 class Condition:
@@ -264,7 +264,7 @@ class ArgParser(argparse.ArgumentParser):
         frame = Frame([arg.__dict__ for arg in self.handler.arguments])
         frame = frame.fillna_as_none()
         frame.aliases = frame._argparse_aliases
-        frame.argtype = frame.argtype.apply(lambda val: TypeValidator.get_type_name(val))
+        frame.argtype = frame.argtype.apply(lambda val: val.converter.__name__)
         grouped_frames = dict(tuple(frame.groupby("optional")))
 
         detail = ""

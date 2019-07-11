@@ -85,7 +85,7 @@ class Validator:
 
         try:
             self.convert(value)
-        except ValueError:
+        except (ValueError, TypeConversionError):
             return False
         else:
             return True
@@ -221,8 +221,10 @@ class ListValidator(Validator, metaclass=GenericMeta):
     def convert(self, value: Any) -> list:
         value = self._try_eval(value)
 
-        if self.val_dtype is None:
-            return super().convert(value)
+        converted = super().convert(value)
+
+        if converted is None or (self.key_dtype is None and self.val_dtype is None):
+            return converted
         else:
             validator = Validate.Type(self.val_dtype, nullable=True)
             return [validator(item) for item in super().convert(value)]
@@ -252,8 +254,8 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
             return super().is_valid(value)
         else:
             if super().is_valid(value):
-                converted, anything = super().convert(value), AnythingValidator()
-                key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything), nullable=True), Validate.Type(Maybe(self.val_dtype).else_(anything), nullable=True)
+                converted = super().convert(value)
+                key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
                 return all([key_validator.is_valid(item) for item in converted.keys()]) and all([val_validator.is_valid(item) for item in converted.values()])
             else:
                 return False
@@ -261,11 +263,13 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
     def convert(self, value: Any) -> dict:
         value = self._try_eval(value)
 
-        if self.key_dtype is None and self.val_dtype is None:
-            return super().convert(value)
+        converted = super().convert(value)
+
+        if converted is None or (self.key_dtype is None and self.val_dtype is None):
+            return converted
         else:
-            converted, anything = super().convert(value), AnythingValidator()
-            key_validator, val_validator = Validate.Type(Maybe(self.key_dtype).else_(anything), nullable=True), Validate.Type(Maybe(self.val_dtype).else_(anything), nullable=True)
+            converted = super().convert(value)
+            key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
 
@@ -282,7 +286,8 @@ class DateTimeValidator(Validator):
         return self
 
     def convert(self, value) -> DateTime:
-        return DateTime.from_datetime(super().convert(value))
+        converted = super().convert(value)
+        return None if converted is None else DateTime.from_datetime(converted)
 
 
 class PathValidator(Validator):
@@ -359,6 +364,7 @@ class Validate(Enum):
     @classmethod
     def Type(self, dtype: Any, **kwargs: Any) -> Validator:
         dtypes = {member.value.dtype: member.value for member in self}
+        dtypes.update({None: AnythingValidator})
         validator = dtypes.get(dtype)
 
         if validator is not None:

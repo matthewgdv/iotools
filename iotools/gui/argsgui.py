@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Dict, List, Any, TYPE_CHECKING
+from typing import List, Any, TYPE_CHECKING
 
 import pandas as pd
 from PyQt5 import QtWidgets
@@ -62,8 +62,7 @@ class WidgetFrame(WidgetManager):
 
     @classmethod
     def from_arg(cls, arg: Argument) -> WidgetFrame:
-        list_like = (list, tuple, set)
-        dtype = arg.argtype.dtype if issubclass_safe(arg.argtype, Validator) else arg.argtype
+        dtype = arg.argtype.dtype
 
         if arg.choices is not None:
             return WidgetFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
@@ -81,10 +80,10 @@ class WidgetFrame(WidgetManager):
             return WidgetFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
         elif dtype in {pd.DataFrame, Frame}:
             return WidgetFrame(argument=arg, manager=Table(state=arg.default))
-        elif dtype in list_like:
-            return WidgetFrame(argument=arg, manager=ListTable(state=arg.default))
+        elif dtype is list:
+            return WidgetFrame(argument=arg, manager=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype))
         elif dtype is dict:
-            return WidgetFrame(argument=arg, manager=DictTable(state=arg.default))
+            return WidgetFrame(argument=arg, manager=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
 
@@ -133,11 +132,11 @@ class ArgsGui:
     def validate_states(self, label: Label) -> None:
         warnings = self.synchronize_states()
         if warnings:
-            print("\n".join(warnings), "\n")
+            print("\n".join(warnings), end="\n\n")
             label.state = "Validation Failed!"
             label.widget.setToolTip("\n".join(warnings))
         else:
-            print(f"\nVALIDATION PASSED\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
+            print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
             label.state = "Validation Passed!"
             label.widget.setToolTip("\n".join([f"{arg.name} = {arg.value}" for arg in self.handler.arguments]))
 
@@ -156,10 +155,10 @@ class ArgsGui:
     def try_to_proceed(self) -> None:
         warnings = self.synchronize_states()
         if warnings:
-            print("\nERROR: Cannot proceed until the following warnings have been resolved:")
+            print("ERROR: Cannot proceed until the following warnings have been resolved:")
             print("\n".join(warnings), "\n")
         else:
-            print(f"\nPROCEEDING\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
+            print(f"PROCEEDING\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
             for arg in self.handler.arguments:
                 arg._widget = None
             self.gui.end_loop()
