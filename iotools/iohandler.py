@@ -16,8 +16,8 @@ from .gui.argsgui import ArgsGui
 from .validator.validator import Validate
 from .validator import StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
 
-# TODO: implement Enum support for choices
 # TODO: implement argument profiles
+# TODO: add namespace attribute to IOHandler
 
 
 class RunMode(Enum):
@@ -84,7 +84,7 @@ class IOHandler:
                 else:
                     self._run_from_commandline()
         else:
-            raise ValueError(f"Invalid run_mode '{self.run_mode}', must be one of {', '.join([mode.value for mode in RunMode])}")
+            raise RunMode.NotAMemberError(self.run_mode)
 
         self._generate_attributes_from_args()
 
@@ -190,9 +190,9 @@ class IOHandler:
 class Argument:
     def __init__(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
                  choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
-        self.name, self.aliases, self.default, self.nullable = name, aliases, default, nullable
-        self.choices, self.magnitude, self.info, self._value = choices, magnitude, info, default
+        self.name, self.aliases, self.default, self.nullable, self.magnitude, self.info, self._value = name, aliases, default, nullable, magnitude, info, default
 
+        self.choices = [member.value for member in choices] if Enum.is_enum(choices) else list(choices)
         self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
         self.condition = Condition(condition) if condition is not None else None
 
