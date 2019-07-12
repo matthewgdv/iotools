@@ -84,7 +84,7 @@ class IOHandler:
                 else:
                     self._run_from_commandline()
         else:
-            raise RunMode.NotAMemberError(self.run_mode)
+            RunMode.raise_if_not_a_member(self.run_mode)
 
         self._generate_attributes_from_args()
 
