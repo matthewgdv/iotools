@@ -6,13 +6,12 @@ from typing import List, Any, TYPE_CHECKING
 import pandas as pd
 from PyQt5 import QtWidgets
 
-from subtypes import DateTime, Frame
+from subtypes import Frame
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
 from .gui import FormGui
 from ..widget.widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
-from ..validator.validator import Validator
 
 if TYPE_CHECKING:
     from ..iohandler import IOHandler, Argument
@@ -66,23 +65,25 @@ class WidgetFrame(WidgetManager):
 
         if arg.choices is not None:
             return WidgetFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
-        elif dtype is dict and arg.argtype._default_generic_type == (str, bool):
+        elif issubclass_safe(dtype, dict) and arg.argtype._default_generic_type == (str, bool):
             return WidgetFrame(argument=arg, manager=CheckBar(choices=arg.default))
         elif dtype is bool:
             return WidgetFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
-        elif dtype in {int, float}:
+        elif issubclass_safe(dtype, int) or issubclass_safe(dtype, float):
             return WidgetFrame(argument=arg, manager=Entry(state=arg.default))
-        elif dtype in {File, Dir}:
-            return WidgetFrame(argument=arg, manager=(FileSelect if arg.argtype is File else DirSelect)(state=arg.default))
-        elif dtype in {dt.date, dt.datetime, DateTime}:
+        elif issubclass_safe(dtype, File):
+            return WidgetFrame(argument=arg, manager=FileSelect(state=arg.default))
+        elif issubclass_safe(dtype, Dir):
+            return WidgetFrame(argument=arg, manager=DirSelect(state=arg.default))
+        elif issubclass_safe(dtype, dt.date):
             return WidgetFrame(argument=arg, manager=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
         elif dtype is str or dtype is None:
             return WidgetFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
-        elif dtype in {pd.DataFrame, Frame}:
+        elif issubclass_safe(dtype, pd.DataFrame):
             return WidgetFrame(argument=arg, manager=Table(state=arg.default))
-        elif dtype is list:
+        elif issubclass_safe(dtype, list):
             return WidgetFrame(argument=arg, manager=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype))
-        elif dtype is dict:
+        elif issubclass_safe(dtype, dict):
             return WidgetFrame(argument=arg, manager=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
