@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Union
 from maybe import Maybe
 from subtypes import Enum, Frame, Str
 from pathmagic import File, Dir
-from miscutils import is_running_in_ipython
+from miscutils import is_running_in_ipython, NameSpace
 
 from .widget.widget import WidgetManager
 from .gui.argsgui import ArgsGui
@@ -17,7 +17,6 @@ from .validator.validator import Validate
 from .validator import StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
 
 # TODO: implement argument profiles
-# TODO: add namespace attribute to IOHandler
 
 
 class RunMode(Enum):
@@ -34,13 +33,14 @@ class IOHandler:
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
     Once instantiated, the collected arguments can be accessed by item access on the object (similar to a dict).
-    The IOHandler implicitly creates a folder structure in the directory of its script for storing a log of arguments passed to it in previous runs, and for providing output.
+    The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    def __init__(self, app_name: str = None, app_desc: str = "", strict_argnames: bool = True, run_mode: str = RunMode.SMART) -> None:
-        self.app_name, self.app_desc, self.strict, self.run_mode = app_name, app_desc, strict_argnames, run_mode
-        self.outfile = self.latest = self.log = None  # type: File
-        self.outdir = self.resources = None  # type: Dir
+    def __init__(self, app_name: str = None, app_desc: str = "", run_mode: str = RunMode.SMART) -> None:
+        self.app_name, self.app_desc, self.run_mode = app_name, app_desc, run_mode
+        self.args = NameSpace()
+        self.outfile = self._latest = None  # type: File
+        self.outdir: Dir = None
         self._arguments: List[Argument] = []
 
         self._workfolder_setup()
@@ -57,18 +57,19 @@ class IOHandler:
 
     def add_arg(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
                 choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
-        if self.strict:
-            self._validate_arg_name(name)
+
+        self._validate_arg_name(name)
 
         if aliases is None:
             aliases = []
+
         shortform = self._determine_shortform_alias(name)
         aliases = [shortform, *aliases] if shortform is not None else aliases
 
         arg = Argument(name=name, aliases=aliases, argtype=argtype, default=default, optional=optional, nullable=nullable, choices=choices, condition=condition, magnitude=magnitude, info=info)
         self._arguments.append(arg)
 
-    def collect_input(self, arguments: Dict[str, Any] = None, logging: bool = True) -> None:
+    def collect_input(self, arguments: Dict[str, Any] = None) -> NameSpace:
         if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
         elif self.run_mode == RunMode.GUI:
@@ -87,10 +88,9 @@ class IOHandler:
             RunMode.raise_if_not_a_member(self.run_mode)
 
         self._generate_attributes_from_args()
+        self._save_latest_input_config()
 
-        if logging:
-            self._save_latest_input_config()
-            self._write_input_config_to_log()
+        return self.args
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         if outfile:
@@ -103,12 +103,12 @@ class IOHandler:
             self.outfile.contents = ""
 
         if outdir:
-            backup = self.outfile.contents if outfile else ""
-            self.outdir.clear().newfile("output", "txt").contents = backup
+            self.outdir.clear()
 
     def _run_as_gui(self, arguments: Dict[str, Any]) -> None:
         if arguments:
             self._set_new_argument_defaults(arguments)
+
         ArgsGui(handler=self)
 
     def _run_from_commandline(self) -> None:
@@ -119,17 +119,14 @@ class IOHandler:
             self._set_arguments_directly(arguments)
 
     def _save_latest_input_config(self) -> None:
-        self.latest.contents = {arg.name: arg.value for arg in self.arguments}
+        self._latest.contents = {arg.name: arg.value for arg in self.arguments}
 
     def _load_latest_input_config(self) -> Dict[str, Any]:
-        if self.latest:
-            return self.latest.contents
+        if self._latest:
+            return self._latest.contents
         else:
             print(f"No prior configuration found for '{self.app_name}'")
             raise FileNotFoundError()
-
-    def _write_input_config_to_log(self) -> None:
-        self.log.contents += f"{ {arg.name : arg.value for arg in self.arguments} }\n"
 
     def _determine_shortform_alias(self, name: str) -> str:
         for letter in name:
@@ -145,15 +142,12 @@ class IOHandler:
                         break
                 else:
                     return letter
-        return "?"
 
     def _validate_arg_name(self, name: str) -> None:
         if name in [argument.name for argument in self._arguments]:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
         if not name.isidentifier():
             raise NameError(f"Argument name '{name}' is not a valid Python identifier.")
-        if name in self.__dict__:
-            raise NameError(f"Argument '{name}' not a valid name. Collides with IOHandler class attribute '{name}'.")
 
     def _set_arguments_directly(self, arguments: Dict[str, Any]) -> None:
         for argument in self.arguments:
@@ -171,7 +165,7 @@ class IOHandler:
 
     def _generate_attributes_from_args(self) -> None:
         for arg in self.arguments:
-            setattr(self, arg.name, arg.value)
+            self.args[arg.name] = arg.value
 
     def _workfolder_setup(self) -> None:
         if is_running_in_ipython():
@@ -183,8 +177,7 @@ class IOHandler:
             self.app_name = Maybe(self.app_name).else_(main.prename)
 
         workfolder = Dir(current_dir).newdir("__workfolders__").newdir(self.app_name)
-        work_in, work_out = workfolder.newdir("input"), workfolder.newdir("output")
-        self.latest, self.log, self.outdir, self.outfile = work_in.newfile("latest", "pkl"), work_in.newfile("log", "txt"), work_out, work_out.newfile("output", "txt")
+        self.outfile, self.outdir, self._latest = workfolder.newfile("output", "txt"), workfolder.newdir("output"), workfolder.newfile("latest", "pkl")
 
 
 class Argument:
