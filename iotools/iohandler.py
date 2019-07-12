@@ -192,7 +192,7 @@ class Argument:
                  choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
         self.name, self.aliases, self.default, self.nullable, self.magnitude, self.info, self._value = name, aliases, default, nullable, magnitude, info, default
 
-        self.choices = [member.value for member in choices] if Enum.is_enum(choices) else list(choices)
+        self.choices = [member.value for member in choices] if Enum.is_enum(choices) else (choices if choices is None else list(choices))
         self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
         self.condition = Condition(condition) if condition is not None else None
 

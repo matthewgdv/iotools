@@ -223,7 +223,7 @@ class ListValidator(Validator, metaclass=GenericMeta):
 
         converted = super().convert(value)
 
-        if converted is None or (self.key_dtype is None and self.val_dtype is None):
+        if converted is None or self.val_dtype is None:
             return converted
         else:
             validator = Validate.Type(self.val_dtype, nullable=True)
