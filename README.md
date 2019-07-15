@@ -8,8 +8,7 @@ The `IOHandler` class
 * Api similar to `argparse.ArgumentParser()`, with `IOHandler.add_arg()` (equivalent to `ArgumentParser.add_argument()`) and `IOHandler.collect_input()`
   (equivalent to `ArgumentParser.parse_args()`, also returning a namespace with the arugment values)
 * Uses argparse under-the-hood when processing commandline arguments, but with a custom-built help interface that is more readable (and way prettier!)
-* When no commandline arguments are provided, it will programatically build a GUI, with widgets picked base on the 'argtype' argument of `IOHandler.add_arg()`, which will serve
-  to collect input from the user
+* When no commandline arguments are provided, it will programatically build a GUI to collect user input, with widgets picked base on the 'argtype' argument of `IOHandler.add_arg()`
 * Can also be run programatically by providing the argument values directly to `IOHandler.collect_input()` as a `dict` of argument name-value pairs
 * The `ArgumentParser.add_argument()` function takes arguments telling the IOHandler how to handle nullability, default values, implicit coercion to the right type, whether the
   argument is optional, and commandline aliases
