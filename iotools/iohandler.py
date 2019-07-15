@@ -36,8 +36,8 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    def __init__(self, app_name: str = None, app_desc: str = "", run_mode: str = RunMode.SMART) -> None:
-        self.app_name, self.app_desc, self.run_mode = app_name, app_desc, run_mode
+    def __init__(self, app_name: str = None, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.strict = app_name, app_desc, run_mode, strict
         self.args = NameSpace()
         self.outfile = self._latest = None  # type: File
         self.outdir: Dir = None
@@ -146,7 +146,7 @@ class IOHandler:
     def _validate_arg_name(self, name: str) -> None:
         if name in [argument.name for argument in self._arguments]:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
-        if not name.isidentifier():
+        if self.strict and not name.isidentifier():
             raise NameError(f"Argument name '{name}' is not a valid Python identifier.")
 
     def _set_arguments_directly(self, arguments: Dict[str, Any]) -> None:
