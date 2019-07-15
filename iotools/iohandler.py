@@ -32,7 +32,7 @@ class ArgType(Enum):
 class IOHandler:
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
-    Once instantiated, the collected arguments can be accessed by item access on the object (similar to a dict).
+    Once instantiated, the collected arguments can be accessed through its 'args' namespace attribute.
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
@@ -185,7 +185,7 @@ class Argument:
                  choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
         self.name, self.aliases, self.default, self.nullable, self.magnitude, self.info, self._value = name, aliases, default, nullable, magnitude, info, default
 
-        self.choices = [member.value for member in choices] if Enum.is_enum(choices) else (choices if choices is None else list(choices))
+        self.choices = choices.values if Enum.is_enum(choices) else (list(choices) if choices is not None else None)
         self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
         self.condition = Condition(condition) if condition is not None else None
 

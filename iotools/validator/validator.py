@@ -350,16 +350,8 @@ class DirValidator(Validator):
 
 
 class Validate(Enum):
-    Int = IntegerValidator
-    Float = FloatValidator
-    Bool = BoolValidator
-    Str = StringValidator
-    List = ListValidator
-    Dict = DictionaryValidator
-    DateTime = DateTimeValidator
-    Path = PathValidator
-    File = FileValidator
-    Dir = DirValidator
+    Int, Float, Bool, Str, List, Dict, DateTime = IntegerValidator, FloatValidator, BoolValidator, StringValidator, ListValidator, DictionaryValidator, DateTimeValidator
+    Path, File, Dir = PathValidator, FileValidator, DirValidator
 
     @classmethod
     def Type(self, dtype: Any, **kwargs: Any) -> Validator:
