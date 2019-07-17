@@ -34,7 +34,7 @@ The `Validator` classes
 
 The `Gui` class and its various template subclasses
 --------------------
-* Provides a Gui class and several template subclasses that can be used alongside the various `WidgetManager` objects to easily set up a GUI, with the exact internals of the
+* Gui class and several template subclasses that can be used alongside the various `WidgetManager` objects to easily set up a GUI, with the exact internals of the
   underlying QT classes abstracted away behind a consistent API. Makes it very quick and easy to set up a simple GUI. Is a thin wrapper around PyQT5.
 * `FormGui` class for quickly setting up forms
 * `HTMLGui` class for Rendering HTML in a separate window
