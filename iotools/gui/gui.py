@@ -9,7 +9,7 @@ from PyQt5 import QtCore as Qcore
 from miscutils import is_running_in_ipython
 
 from ..widget.widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager
-from .utils import MakeScrollable, MainWindow
+from ..widget.utils import MakeScrollable, MainWindow
 
 # TODO: replace all instances of addWidget with assignment to parent property
 

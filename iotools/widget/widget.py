@@ -13,7 +13,8 @@ from maybe import Maybe
 from subtypes import DateTime, Frame
 from pathmagic import PathLike, Dir
 
-from ..validator.validator import Validate
+from ..validator.validator import Validate, Validator
+from .utils import TemporarilyDisconnect
 
 
 class WidgetManager(ABC):
@@ -348,16 +349,18 @@ class Table(WidgetManager):
             return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
 
-class ListTable(WidgetManagerFrame):
-    def __init__(self, state: list = None, val_dtype: Any = None) -> None:
+class GenericTable(WidgetManagerFrame):
+    validator: Validator
+    state: Any
+
+    def __init__(self) -> None:
         super().__init__(horizontal=False)
-        self.validator = Validate.List(nullable=True)[val_dtype]
+
         self.table, self.textbox = Table(), Text(magnitude=1)
 
         self.textbox.widget.textChanged.connect(self.try_interpret_string_as_list)
-        # self.table.widget.currentCellChanged.connect(self.set_textbox_repr)
+        self.table.widget.cellChanged.connect(self.set_textbox_repr)
 
-        self.state = state
         self.textbox.parent = self.table.parent = self
 
     @property
@@ -375,24 +378,40 @@ class ListTable(WidgetManagerFrame):
 
     def try_interpret_string_as_list(self) -> None:
         if self.validator.is_valid(self.textbox.state):
-            self.state = self.validator.convert(self.textbox.state)
+            with TemporarilyDisconnect(self.set_textbox_repr).from_(self.table.widget.cellChanged):
+                self.state = self.validator.convert(self.textbox.state)
 
     def set_textbox_repr(self, row: int, col: int, *args: Any) -> None:
         if self.validator.is_valid(self.state):
-            self.textbox.state = repr(self.validator.convert(self.state))
+            with TemporarilyDisconnect(self.try_interpret_string_as_list).from_(self.textbox.widget.textChanged):
+                self.textbox.state = repr(self.validator.convert(self.state))
 
 
-class DictTable(WidgetManagerFrame):
-    def __init__(self, state: dict = None, key_dtype: Any = None, val_dtype: Any = None) -> None:
-        super().__init__(horizontal=False)
-        self.validator = Validate.Dict(nullable=True)[key_dtype, val_dtype]
-        self.table, self.textbox = Table(), Text(magnitude=1)
-
-        self.textbox.widget.textChanged.connect(self.try_interpret_string_as_dict)
-        # self.table.widget.currentCellChanged.connect(self.set_textbox_repr)
-
+class ListTable(GenericTable):
+    def __init__(self, state: list = None, val_dtype: Any = None) -> None:
+        super().__init__()
+        self.validator = Validate.List(nullable=True)[val_dtype]
         self.state = state
-        self.textbox.parent = self.table.parent = self
+
+    @property
+    def state(self) -> list:
+        vals = list(self.table.state.value)
+        while vals[-1] is None:
+            vals.pop(-1)
+
+        return vals
+
+    @state.setter
+    def state(self, val: list) -> None:
+        df = Frame([None], columns=["value"]) if val is None else Frame(val, columns=["value"])
+        self.table.state = df
+
+
+class DictTable(GenericTable):
+    def __init__(self, state: dict = None, key_dtype: Any = None, val_dtype: Any = None) -> None:
+        super().__init__()
+        self.validator = Validate.Dict(nullable=True)[key_dtype, val_dtype]
+        self.state = state
 
     @property
     def state(self) -> dict:
@@ -402,11 +421,3 @@ class DictTable(WidgetManagerFrame):
     def state(self, val: dict) -> None:
         df = Frame([(None, None)], columns=["key", "value"]) if val is None else Frame([(key, value) for key, value in val.items()], columns=["key", "value"])
         self.table.state = df
-
-    def try_interpret_string_as_dict(self) -> None:
-        if self.validator.is_valid(self.textbox.state):
-            self.state = self.validator.convert(self.textbox.state)
-
-    def set_textbox_repr(self, row: int, col: int, *args: Any) -> None:
-        if self.validator.is_valid(self.state):
-            self.textbox.state = repr(self.validator.convert(self.state))

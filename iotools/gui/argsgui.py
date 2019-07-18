@@ -6,7 +6,6 @@ from typing import List, Any, TYPE_CHECKING
 import pandas as pd
 from PyQt5 import QtWidgets
 
-from subtypes import Frame
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 

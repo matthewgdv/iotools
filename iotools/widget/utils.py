@@ -1,11 +1,36 @@
 from __future__ import annotations
 
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from PyQt5 import QtWidgets as Qwidgets
 
 if TYPE_CHECKING:
     from .gui import Gui
+
+
+class MainWindow(Qwidgets.QWidget):
+    def __init__(self, *args: Any, parent: Gui = None, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.parent = parent
+
+    def closeEvent(self, event: Any) -> None:
+        self.parent.kill()
+
+
+class TemporarilyDisconnect:
+    def __init__(self, callback: Callable) -> None:
+        self.callback = callback
+
+    def from_(self, signal: Any) -> TemporarilyDisconnect:
+        self.signal = signal
+        return self
+
+    def __enter__(self) -> TemporarilyDisconnect:
+        self.signal.disconnect(self.callback)
+        return self
+
+    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
+        self.signal.connect(self.callback)
 
 
 class MakeScrollable:
@@ -28,12 +53,3 @@ class MakeScrollable:
         container_layout.addWidget(scroll_area)
 
         self.container.setLayout(container_layout)
-
-
-class MainWindow(Qwidgets.QWidget):
-    def __init__(self, *args: Any, parent: Gui = None, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-        self.parent = parent
-
-    def closeEvent(self, event: Any) -> None:
-        self.parent.kill()
