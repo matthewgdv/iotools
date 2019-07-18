@@ -13,8 +13,7 @@ from miscutils import is_running_in_ipython, NameSpace
 
 from .widget.widget import WidgetManager
 from .gui.argsgui import ArgsGui
-from .validator.validator import Validate
-from .validator import StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
+from .validator.validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
 
 # TODO: implement argument profiles
 
