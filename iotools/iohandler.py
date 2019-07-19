@@ -222,7 +222,7 @@ class Condition:
         if self.condition is None:
             return ""
         elif "<lambda>" in repr(self.condition):
-            return str(Str(inspect.getsource(self.condition)).search(r"condition\s*=\s*lambda.*:\s*(([^([,]*(\(.*?\)|\[.*?\])+)*[^([,]*?)[,)]").group(1))
+            return str(Str(inspect.getsource(self.condition)).re.search(r"condition\s*=\s*lambda.*:\s*(([^([,]*(\(.*?\)|\[.*?\])+)*[^([,]*?)[,)]").group(1))
         else:
             return self.condition.__name__
 
