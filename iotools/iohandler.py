@@ -37,7 +37,7 @@ class IOHandler:
 
     def __init__(self, app_name: str = None, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
         self.app_name, self.app_desc, self.run_mode, self.strict = app_name, app_desc, run_mode, strict
-        self.args = NameSpace()
+        self.args: NameSpace = None
         self.outfile = self._latest = None  # type: File
         self.outdir: Dir = None
         self._arguments: List[Argument] = []
@@ -86,7 +86,7 @@ class IOHandler:
         else:
             RunMode.raise_if_not_a_member(self.run_mode)
 
-        self._generate_attributes_from_args()
+        self._generate_args_namespace()
         self._save_latest_input_config()
 
         return self.args
@@ -118,7 +118,7 @@ class IOHandler:
             self._set_arguments_directly(arguments)
 
     def _save_latest_input_config(self) -> None:
-        self._latest.contents = {arg.name: arg.value for arg in self.arguments}
+        self._latest.contents = self.args.to_dict()
 
     def _load_latest_input_config(self) -> Dict[str, Any]:
         if self._latest:
@@ -162,9 +162,8 @@ class IOHandler:
                     argument.default = val
                     break
 
-    def _generate_attributes_from_args(self) -> None:
-        for arg in self.arguments:
-            self.args[arg.name] = arg.value
+    def _generate_args_namespace(self) -> None:
+        self.args = NameSpace({arg.name: arg.value for arg in self.arguments})
 
     def _workfolder_setup(self) -> None:
         if is_running_in_ipython():
