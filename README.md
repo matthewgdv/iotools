@@ -15,22 +15,22 @@ The `IOHandler` class
 
 The `Validate` class
 --------------------
-* An accessor class granting access to several Validator class through attribute access
-* Currently supports type checking and implicit coercion of the input value to the following supported types (int, float, bool, str, list, dict, subtypes.DateTime, pathlib.Path,
-  pathmagic.File, pathmagic.Dir)
+* An accessor class granting access to several Validator classes through attribute access
+* Currently supports type checking and implicit coercion of the input value to the following supported types (`int`, `float`, `bool`, `str`, `list`, `dict`, `subtypes.DateTime`,
+  `pathlib.Path`, `pathmagic.File`, `pathmagic.Dir`)
 * Its attributes are: `Validate.Int`, `Validate.Float`, `Validate.Bool`, `Validate.Str`, `Validate.List`, `Validate.Dict`, `Validate.DateTime`, `Validate.Path`,
   `Validate.File`, `Validate.Dir`
 
 The `Validator` classes
 --------------------
-* Currently there are IntegerValidator, FloatValidator, BoolValidator, StringValidator, ListValidator, DictionaryValidator, DateTimeValidator, PathValidator,
-  FileValidator, DirValidator
+* Currently there are `IntegerValidator`, `FloatValidator`, `BoolValidator`, `StringValidator`, `ListValidator`, `DictionaryValidator`, `DateTimeValidator`, `PathValidator`,
+  `FileValidator`, `DirValidator`
 * Some of these validators are implemented as a wrapper over typepy, but the api is different
 * Validators can handle nullability as desired, and, where there is an equivalent typepy checker, have strictness levels that can be set.
 * Some validators have additional validation methods to check for values in valid ranges. For example: `Validate.Int().max_value(7).is_valid(9)` would return False.
 * Additional conditions can be added to a validator by passing callbacks that return boolean values to `Validator.add_condition()`
 * The validator can be reused for any number of values once initially set up.
-* ListValidator and DictionaryValidator will coerce strings by using eval (safely), rather than coercing a string to a list by calling list() on it
+* `ListValidator` and `DictionaryValidator` will coerce strings by using eval (safely), rather than coercing a string to a list by calling `list()` on it
 
 The `Gui` class and its various template subclasses
 --------------------
