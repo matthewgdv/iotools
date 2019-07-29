@@ -51,7 +51,7 @@ Installation
 
 To install use pip:
 
-    $ pip install [project_name]
+    $ pip install pyiotools
 
 
 Or clone the repo:
@@ -63,7 +63,7 @@ Or clone the repo:
 Usage
 ====================
 
-[Usage]
+Usage examples coming soon.
 
 Contributing
 ====================

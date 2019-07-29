@@ -9,9 +9,9 @@ with open(path.join(here, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
 setup(
-    name="iotools",
+    name="pyiotools",
     version=__version__,
-    description="[short_project_description]",
+    description="Provides several utilities for handling I/O",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/matthewgdv/iotools",
@@ -23,8 +23,14 @@ setup(
     ],
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
-
-    ],
+        "PyQt5",
+        "maybe-else",
+        "pandas",
+        "pathmagic",
+        "pymiscutils",
+        "pysubtypes",
+        "typepy"
+     ],
     author="Matt GdV",
     author_email="matthewgdv@gmail.com"
 )
