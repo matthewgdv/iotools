@@ -88,37 +88,40 @@ class WidgetFrame(WidgetManager):
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
 
 
-class ArgsGui:
+class ArgsGui(FormGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
     def __init__(self, handler: IOHandler) -> None:
-        self.handler, self.gui = handler, FormGui(name=handler.app_name)
+        super().__init__(name=handler.app_name)
+        self.handler = handler
 
-        with self.gui:
-            self.populate_title_segment()
-            self.populate_main_segment()
-            self.populate_button_segment()
+        self.populate_title_segment()
+        self.populate_main_segment()
+        self.populate_button_segment()
+
+        self.start_loop()
 
     def populate_title_segment(self) -> None:
-        self.gui.title_layout.addWidget(Label(text=self.handler.app_desc).widget)
+        with self.title:
+            Label(text=self.handler.app_desc).stack()
 
     def populate_main_segment(self) -> None:
-        for arg in self.handler.arguments:
-            frame = WidgetFrame.from_arg(arg)
-            arg._widget = frame
-            self.gui.main_layout.addWidget(frame.widget)
+        with self.main:
+            for arg in self.handler.arguments:
+                frame = WidgetFrame.from_arg(arg).stack()
+                arg._widget = frame
 
     def populate_button_segment(self) -> None:
-        self.gui.button_layout.addWidget(Button(text='Latest Config', command=self.fetch_latest).widget)
-        self.gui.button_layout.addWidget(Button(text='Default Config', command=self.fetch_default).widget)
-        self.gui.button_layout.addStretch()
+        with self.buttons:
+            Button(text='Latest Config', command=self.fetch_latest).stack()
+            Button(text='Default Config', command=self.fetch_default).stack()
 
-        validation = Label(text="Not yet validated.")
-        self.gui.button_layout.addWidget(validation.widget)
+            self.buttons.layout.addStretch()
+            validation = Label(text="Not yet validated.").stack()
+            self.buttons.layout.addStretch()
 
-        self.gui.button_layout.addStretch()
-        self.gui.button_layout.addWidget(Button(text='Validate', command=lambda: self.validate_states(validation)).widget)
-        self.gui.button_layout.addWidget(Button(text='Proceed', command=self.try_to_proceed).widget)
+            Button(text='Validate', command=lambda: self.validate_states(validation)).stack()
+            Button(text='Proceed', command=self.try_to_proceed).stack()
 
     def synchronize_states(self) -> List[str]:
         warnings = []
@@ -161,4 +164,4 @@ class ArgsGui:
             print(f"PROCEEDING\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
             for arg in self.handler.arguments:
                 arg._widget = None
-            self.gui.end_loop()
+            self.end_loop()

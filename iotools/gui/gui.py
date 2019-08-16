@@ -8,38 +8,35 @@ from PyQt5 import QtCore as Qcore
 
 from miscutils import is_running_in_ipython
 
-from ..widget.widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager
-from ..widget.utils import MakeScrollable, MainWindow
+from ..widget.widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager, WidgetManagerFrame, MainWindow
 
 # TODO: replace all instances of addWidget with assignment to parent property
 
 
 class Gui(Qcore.QObject):
-    app = Qwidgets.QApplication([])
+    app, stack = Qwidgets.QApplication([]), []
 
     def __init__(self, name: str = None):
         super().__init__()
         self.children: List[WidgetManager] = []
-
-        self.widget, self.layout = MainWindow(parent=self), Qwidgets.QVBoxLayout()
-        self.widget.setLayout(self.layout)
+        self.window = MainWindow()
 
         if name is not None:
             self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
 
     def __enter__(self) -> Gui:
-        return self
+        Gui.stack.append(self.window)
+        return self.window
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        if ex_type is None:
-            self.start_loop()
+        Gui.stack.pop(-1)
 
     def start_loop(self) -> None:
-        self.widget.show()
+        self.window.show()
         self.app.exec()
 
     def end_loop(self) -> None:
-        self.widget.hide()
+        self.window.hide()
         self.app.quit()
 
     def kill(self) -> None:
@@ -53,16 +50,8 @@ class Gui(Qcore.QObject):
 class FormGui(Gui):
     def __init__(self, name: str = None):
         super().__init__(name=name)
-        self.title_layout, self.main_layout, self.button_layout = Qwidgets.QHBoxLayout(), Qwidgets.QVBoxLayout(), Qwidgets.QHBoxLayout()
-
-    def start_loop(self) -> None:
-        self._set_layout()
-        super().start_loop()
-
-    def _set_layout(self) -> None:
-        title_segment, main_segment, button_segment = Qwidgets.QGroupBox(), Qwidgets.QGroupBox(), Qwidgets.QGroupBox()
-        title_segment.setLayout(self.title_layout), MakeScrollable(container=main_segment, layout=self.main_layout), button_segment.setLayout(self.button_layout)
-        self.layout.addWidget(title_segment), self.layout.addWidget(main_segment), self.layout.addWidget(button_segment)
+        with self.window:
+            self.title, self.main, self.buttons = WidgetManagerFrame(horizontal=True).stack(), WidgetManagerFrame(horizontal=False, scrollable=True).stack(), WidgetManagerFrame(horizontal=True).stack()
 
 
 class HtmlGui(Gui):

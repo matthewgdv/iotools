@@ -26,6 +26,15 @@ class WidgetManager(ABC):
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
+    def __enter__(self) -> WidgetManager:
+        from ..gui.gui import Gui
+        Gui.stack.append(self)
+        return self
+
+    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
+        from ..gui.gui import Gui
+        Gui.stack.pop(-1)
+
     @property
     def state(self) -> Any:
         return self.get_state()
@@ -61,15 +70,37 @@ class WidgetManager(ABC):
 
         self.parent.layout.addWidget(self.widget)
 
+    def stack(self) -> WidgetManager:
+        from ..gui.gui import Gui
+        self.parent = Gui.stack[-1]
+        return self
+
 
 class WidgetManagerFrame(WidgetManager):
-    def __init__(self, horizontal: bool = True):
+    def __init__(self, horizontal: bool = True, scrollable: bool = False):
+        from ..widget.utils import MakeScrollable
         super().__init__()
 
         self.widget, self.layout = QtWidgets.QFrame(), QtWidgets.QHBoxLayout() if horizontal else QtWidgets.QVBoxLayout()
 
         self.layout.setContentsMargins(0, 0, 0, 0)
+        MakeScrollable(container=self.widget, layout=self.layout) if scrollable else self.widget.setLayout(self.layout)
+
+
+class MainWindow(WidgetManager):
+    def __init__(self, layout: Any = QtWidgets.QVBoxLayout) -> None:
+        super().__init__()
+        self.widget, self.layout = QtWidgets.QFrame(), layout()
         self.widget.setLayout(self.layout)
+
+    def show(self) -> None:
+        return self.widget.show()
+
+    def hide(self) -> None:
+        return self.widget.hide()
+
+    def closeEvent(self, event: Any) -> None:
+        self.parent.kill()
 
 
 class Label(WidgetManager):

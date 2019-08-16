@@ -79,8 +79,7 @@ class Validator:
         if value is None:
             return self.nullable
 
-        ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type()
-        if not ret:
+        if not self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type():
             return False
 
         try:
@@ -98,7 +97,7 @@ class Validator:
                 raise TypeConversionError(self, value)
         else:
             try:
-                ret = self.converter(value, strict_level=self.strict).convert()
+                ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).convert()
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
