@@ -57,8 +57,9 @@ class FormGui(Gui):
 class HtmlGui(Gui):
     def __init__(self, name: str = None, text: str = None) -> None:
         super().__init__(name=name)
-        self.text, self.html, self.button = text, HtmlDisplay(text=text), Button(text="continue", command=self.end_loop)
-        self.html.parent = self.button.parent = self
+        with self:
+            self.html, self.button = HtmlDisplay(text=text).stack(), Button(text="continue", command=self.end_loop).stack()
+
         self.start_loop()
 
 
