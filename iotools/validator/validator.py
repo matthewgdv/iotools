@@ -56,6 +56,9 @@ class Validator:
     def __repr__(self) -> str:
         return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'dtype' in attr else (None if val is None else val.__name__)}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
 
+    def __str__(self) -> str:
+        return self.converter.__name__
+
     def __call__(self, value: Any) -> Any:
         return self.convert(value)
 
@@ -146,13 +149,11 @@ class UnknownTypeValidator(Validator):
 
 
 class BoolValidator(Validator):
-    dtype = bool
-    converter = typepy.Bool
+    dtype, converter = bool, typepy.Bool
 
 
 class StringValidator(Validator):
-    dtype = str
-    converter = typepy.String
+    dtype, converter = str, typepy.String
 
     def max_len(self, length: int) -> StringValidator:
         self.conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
@@ -164,8 +165,7 @@ class StringValidator(Validator):
 
 
 class IntegerValidator(Validator):
-    dtype = int
-    converter = typepy.Integer
+    dtype, converter = int, typepy.Integer
 
     def max_value(self, value: int) -> IntegerValidator:
         self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
@@ -177,8 +177,7 @@ class IntegerValidator(Validator):
 
 
 class FloatValidator(Validator):
-    dtype = float
-    converter = typepy.RealNumber
+    dtype, converter = float, typepy.RealNumber
 
     def max_value(self, value: float) -> FloatValidator:
         self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
@@ -190,13 +189,14 @@ class FloatValidator(Validator):
 
 
 class ListValidator(Validator, metaclass=GenericMeta):
-    dtype = list
-    converter = typepy.List
-    _default_generic_type = None
+    dtype, converter, _default_generic_type = list, typepy.List, None
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.val_dtype = self._default_generic_type
+
+    def __str__(self) -> str:
+        return f"""{super().__str__()}{f"[{self._default_generic_type.__name__}]" if self._default_generic_type is not None else ""}"""
 
     def __getitem__(self, key) -> ListValidator:
         return self.of_type(key)
@@ -230,13 +230,14 @@ class ListValidator(Validator, metaclass=GenericMeta):
 
 
 class DictionaryValidator(Validator, metaclass=GenericMeta):
-    dtype = dict
-    converter = typepy.Dictionary
-    _default_generic_type = None
+    dtype, converter, _default_generic_type = dict, typepy.Dictionary, None
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.key_dtype, self.val_dtype = Maybe(self._default_generic_type).else_((None, None))
+
+    def __str__(self) -> str:
+        return f"""{super().__str__()}{f"[{', '.join([val.__name__ for val in self._default_generic_type])}]" if self._default_generic_type is not None else ""}"""
 
     def __getitem__(self, key) -> DictionaryValidator:
         key_dtype, val_dtype = key
@@ -273,8 +274,7 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
 
 
 class DateTimeValidator(Validator):
-    dtype = dt.date
-    converter = typepy.DateTime
+    dtype, converter = dt.date, typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
         self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
@@ -290,8 +290,6 @@ class DateTimeValidator(Validator):
 
 
 class PathValidator(Validator):
-    dtype = pathlib.Path
-
     class Path:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -307,12 +305,10 @@ class PathValidator(Validator):
         def convert(self) -> Any:
             return pathlib.Path(self.value)
 
-    converter = Path
+    dtype, converter = pathlib.Path, Path
 
 
 class FileValidator(Validator):
-    dtype = pathmagic.File
-
     class File:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -326,12 +322,10 @@ class FileValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.File(self.value)
 
-    converter = File
+    dtype, converter = pathmagic.File, File
 
 
 class DirValidator(Validator):
-    dtype = pathmagic.Dir
-
     class Dir:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -345,7 +339,7 @@ class DirValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.Dir(self.value)
 
-    converter = Dir
+    dtype, converter = pathmagic.Dir, Dir
 
 
 class Validate(Enum):

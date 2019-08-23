@@ -13,7 +13,7 @@ from miscutils import is_running_in_ipython, NameSpace
 
 from .widget.widget import WidgetManager
 from .gui.argsgui import ArgsGui
-from .validator.validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
+from .validator.validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
 
 # TODO: implement argument profiles
 
@@ -236,8 +236,17 @@ class ArgsCommandLineParser:
             parser.add_argument(*arg._argparse_aliases, default=arg.default, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
         namespace = parser.parse_args() if args is None else parser.parse_args(args)
+
+        exceptions = []
         for arg in self.handler.arguments:
-            arg.value = getattr(namespace, arg.name)
+            try:
+                arg.value = getattr(namespace, arg.name)
+            except TypeConversionError as ex:
+                exceptions.append((arg.name, ex))
+
+        if exceptions:
+            print("\n".join([f"[{name}] {ex}" for name, ex in exceptions]), end="\n\n")
+            sys.exit(TypeError("Failed to convert the above arguments to their required types."))
 
 
 class ArgParser(argparse.ArgumentParser):
@@ -255,7 +264,7 @@ class ArgParser(argparse.ArgumentParser):
         frame = Frame([arg.__dict__ for arg in self.handler.arguments])
         frame = frame.fillna_as_none()
         frame.aliases = frame._argparse_aliases
-        frame.argtype = frame.argtype.apply(lambda val: val.converter.__name__)
+        frame.argtype = frame.argtype.apply(lambda val: str(val))
         grouped_frames = dict(tuple(frame.groupby("optional")))
 
         detail = ""
