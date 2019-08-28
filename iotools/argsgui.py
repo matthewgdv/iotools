@@ -10,13 +10,13 @@ from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
 from .gui import FormGui
-from ..widget.widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+from .widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
 
 if TYPE_CHECKING:
-    from ..iohandler import IOHandler, Argument
+    from .iohandler import IOHandler, Argument
 
 
-class WidgetFrame(WidgetManager):
+class ArgFrame(WidgetManager):
     def __init__(self, argument: Argument, manager: WidgetManager) -> None:
         super().__init__()
 
@@ -59,31 +59,31 @@ class WidgetFrame(WidgetManager):
                 self.widget.setChecked(True)
 
     @classmethod
-    def from_arg(cls, arg: Argument) -> WidgetFrame:
+    def from_arg(cls, arg: Argument) -> ArgFrame:
         dtype = arg.argtype.dtype
 
         if arg.choices is not None:
-            return WidgetFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
+            return ArgFrame(argument=arg, manager=DropDown(choices=arg.choices, state=arg.default))
         elif issubclass_safe(dtype, dict) and arg.argtype._default_generic_type == (str, bool):
-            return WidgetFrame(argument=arg, manager=CheckBar(choices=arg.default))
+            return ArgFrame(argument=arg, manager=CheckBar(choices=arg.default))
         elif dtype is bool:
-            return WidgetFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
+            return ArgFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
         elif issubclass_safe(dtype, int) or issubclass_safe(dtype, float):
-            return WidgetFrame(argument=arg, manager=Entry(state=arg.default))
+            return ArgFrame(argument=arg, manager=Entry(state=arg.default))
         elif issubclass_safe(dtype, File):
-            return WidgetFrame(argument=arg, manager=FileSelect(state=arg.default))
+            return ArgFrame(argument=arg, manager=FileSelect(state=arg.default))
         elif issubclass_safe(dtype, Dir):
-            return WidgetFrame(argument=arg, manager=DirSelect(state=arg.default))
+            return ArgFrame(argument=arg, manager=DirSelect(state=arg.default))
         elif issubclass_safe(dtype, dt.date):
-            return WidgetFrame(argument=arg, manager=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
+            return ArgFrame(argument=arg, manager=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
         elif dtype is str or dtype is None:
-            return WidgetFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
+            return ArgFrame(argument=arg, manager=Text(state=arg.default, magnitude=arg.magnitude))
         elif issubclass_safe(dtype, pd.DataFrame):
-            return WidgetFrame(argument=arg, manager=Table(state=arg.default))
+            return ArgFrame(argument=arg, manager=Table(state=arg.default))
         elif issubclass_safe(dtype, list):
-            return WidgetFrame(argument=arg, manager=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype))
+            return ArgFrame(argument=arg, manager=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype))
         elif issubclass_safe(dtype, dict):
-            return WidgetFrame(argument=arg, manager=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
+            return ArgFrame(argument=arg, manager=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
 
@@ -108,7 +108,7 @@ class ArgsGui(FormGui):
     def populate_main_segment(self) -> None:
         with self.main:
             for arg in self.handler.arguments:
-                frame = WidgetFrame.from_arg(arg).stack()
+                frame = ArgFrame.from_arg(arg).stack()
                 arg._widget = frame
 
     def populate_button_segment(self) -> None:

@@ -8,7 +8,7 @@ from PyQt5 import QtCore as Qcore
 
 from miscutils import is_running_in_ipython
 
-from ..widget.widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager, WidgetManagerFrame, MainWindow
+from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager, WidgetFrame, MainWindow
 
 # TODO: replace all instances of addWidget with assignment to parent property
 
@@ -19,7 +19,7 @@ class Gui(Qcore.QObject):
     def __init__(self, name: str = None):
         super().__init__()
         self.children: List[WidgetManager] = []
-        self.window = MainWindow()
+        self.window = MainWindow(gui=self)
 
         if name is not None:
             self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
@@ -51,7 +51,11 @@ class FormGui(Gui):
     def __init__(self, name: str = None):
         super().__init__(name=name)
         with self.window:
-            self.title, self.main, self.buttons = WidgetManagerFrame(horizontal=True).stack(), WidgetManagerFrame(horizontal=False, scrollable=True).stack(), WidgetManagerFrame(horizontal=True).stack()
+            self.title, self.main, self.buttons = WidgetFrame(horizontal=True).stack(), WidgetFrame(horizontal=False).stack(), WidgetFrame(horizontal=True).stack()
+
+    def start_loop(self):
+        self.main.make_scrollable()
+        super().start_loop()
 
 
 class HtmlGui(Gui):

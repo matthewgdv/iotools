@@ -11,9 +11,9 @@ from subtypes import Enum, Frame, Str
 from pathmagic import File, Dir
 from miscutils import is_running_in_ipython, NameSpace
 
-from .widget.widget import WidgetManager
-from .gui.argsgui import ArgsGui
-from .validator.validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
+from .widget import WidgetManager
+from .argsgui import ArgsGui
+from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
 
 # TODO: implement argument profiles
 

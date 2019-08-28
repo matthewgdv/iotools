@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
-from abc import ABC
-from typing import Any, Callable, Dict, List, Tuple, Union
+from typing import Any, Callable, Dict, List, Tuple, Union, TYPE_CHECKING
 import itertools
 
 from PyQt5 import QtCore as QtCore
@@ -13,11 +12,29 @@ from maybe import Maybe
 from subtypes import DateTime, Frame
 from pathmagic import PathLike, Dir
 
-from ..validator.validator import Validate, Validator
-from .utils import TemporarilyDisconnect
+from .validator import Validate, Validator
+
+if TYPE_CHECKING:
+    from ..gui.gui import Gui
 
 
-class WidgetManager(ABC):
+class TemporarilyDisconnect:
+    def __init__(self, callback: Callable) -> None:
+        self.callback = callback
+
+    def from_(self, signal: Any) -> TemporarilyDisconnect:
+        self.signal = signal
+        return self
+
+    def __enter__(self) -> TemporarilyDisconnect:
+        self.signal.disconnect(self.callback)
+        return self
+
+    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
+        self.signal.connect(self.callback)
+
+
+class WidgetManager:
     def __init__(self) -> None:
         self.widget = self.get_state = self.set_state = self.get_text = self.set_text = None  # type: Any
         self.children: list = []
@@ -27,12 +44,12 @@ class WidgetManager(ABC):
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
     def __enter__(self) -> WidgetManager:
-        from ..gui.gui import Gui
+        from .gui import Gui
         Gui.stack.append(self)
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        from ..gui.gui import Gui
+        from .gui import Gui
         Gui.stack.pop(-1)
 
     @property
@@ -71,36 +88,51 @@ class WidgetManager(ABC):
         self.parent.layout.addWidget(self.widget)
 
     def stack(self) -> WidgetManager:
-        from ..gui.gui import Gui
+        from .gui import Gui
         self.parent = Gui.stack[-1]
         return self
 
 
-class WidgetManagerFrame(WidgetManager):
+class MainWindow(QtWidgets.QWidget, WidgetManager):
+    def __init__(self, gui: Gui, layout: Any = QtWidgets.QVBoxLayout) -> None:
+        super().__init__()
+        self.gui, self.widget, self.layout = gui, self, layout()
+        self.widget.setLayout(self.layout)
+
+    def closeEvent(self, event: Any) -> None:
+        self.gui.kill()
+
+
+class WidgetFrame(WidgetManager):
     def __init__(self, horizontal: bool = True, scrollable: bool = False):
-        from ..widget.utils import MakeScrollable
         super().__init__()
 
         self.widget, self.layout = QtWidgets.QFrame(), QtWidgets.QHBoxLayout() if horizontal else QtWidgets.QVBoxLayout()
 
         self.layout.setContentsMargins(0, 0, 0, 0)
-        MakeScrollable(container=self.widget, layout=self.layout) if scrollable else self.widget.setLayout(self.layout)
+        self.make_scrollable() if scrollable else self.widget.setLayout(self.layout)
 
+    def set_scroll_area_dimensions(self):
+        inner_height = self.inner_widget.sizeHint().height()
+        self.scroll_area.setMinimumHeight(inner_height if inner_height < 550 else 550)
 
-class MainWindow(WidgetManager):
-    def __init__(self, layout: Any = QtWidgets.QVBoxLayout) -> None:
-        super().__init__()
-        self.widget, self.layout = QtWidgets.QFrame(), layout()
-        self.widget.setLayout(self.layout)
+    def make_scrollable(self) -> None:
+        self.inner_widget = QtWidgets.QFrame()
+        self.inner_widget.setLayout(self.layout)
 
-    def show(self) -> None:
-        return self.widget.show()
+        self.scroll_area = QtWidgets.QScrollArea()
+        self.scroll_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.scroll_area.setWidgetResizable(True)
+        self.scroll_area.setSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Preferred)
+        self.scroll_area.setWidget(self.inner_widget)
 
-    def hide(self) -> None:
-        return self.widget.hide()
+        self.set_scroll_area_dimensions()
 
-    def closeEvent(self, event: Any) -> None:
-        self.parent.kill()
+        self.outer_layout = QtWidgets.QVBoxLayout()
+        self.outer_layout.setContentsMargins(0, 0, 0, 0)
+        self.outer_layout.addWidget(self.scroll_area)
+
+        self.widget.setLayout(self.outer_layout)
 
 
 class Label(WidgetManager):
@@ -138,7 +170,7 @@ class Checkbox(WidgetManager):
             self.widget.clicked.connect(command)
 
 
-class CheckBar(WidgetManagerFrame):
+class CheckBar(WidgetFrame):
     """A list of checkboxes placed into a single widget."""
 
     def __init__(self, choices: Dict[str, bool] = None) -> None:
@@ -219,7 +251,7 @@ class Text(WidgetManager):
         self.set_state(str(Maybe(val).else_("")))
 
 
-class PathSelect(WidgetManagerFrame, ABC):
+class PathSelect(WidgetFrame):
     path_method: Any = None
     prompt: str = None
 
@@ -380,7 +412,7 @@ class Table(WidgetManager):
             return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
 
-class GenericTable(WidgetManagerFrame):
+class GenericTable(WidgetFrame):
     validator: Validator
     state: Any
 
