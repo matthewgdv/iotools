@@ -130,7 +130,7 @@ class IOHandler:
     def _determine_shortform_alias(self, name: str) -> str:
         for letter in name:
             if letter.isalnum():
-                failed = False
+                failed = letter == "h"
                 for arg in self.arguments:
                     for alias in arg.aliases:
                         if letter == alias:
