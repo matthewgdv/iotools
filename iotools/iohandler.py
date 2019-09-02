@@ -9,7 +9,7 @@ from typing import Any, Callable, Dict, List, Union
 from maybe import Maybe
 from subtypes import Enum, Frame, Str
 from pathmagic import File, Dir
-from miscutils import is_running_in_ipython, NameSpace
+from miscutils import is_running_in_ipython, NameSpaceDict
 
 from .widget import WidgetManager
 from .argsgui import ArgsGui
@@ -118,7 +118,7 @@ class IOHandler:
             self._set_arguments_directly(arguments)
 
     def _save_latest_input_config(self) -> None:
-        self._latest.contents = self.args.to_dict()
+        self._latest.contents = self.args
 
     def _load_latest_input_config(self) -> Dict[str, Any]:
         if self._latest:
@@ -163,7 +163,7 @@ class IOHandler:
                     break
 
     def _generate_args_namespace(self) -> None:
-        self.args = NameSpace({arg.name: arg.value for arg in self.arguments})
+        self.args = NameSpaceDict({arg.name: arg.value for arg in self.arguments})
 
     def _workfolder_setup(self) -> None:
         if is_running_in_ipython():
