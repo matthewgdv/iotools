@@ -17,6 +17,8 @@ from .validator import Validate, Validator
 if TYPE_CHECKING:
     from ..gui.gui import Gui
 
+# TODO: Add email selector WidgetManager
+
 
 class TemporarilyDisconnect:
     def __init__(self, callback: Callable) -> None:
