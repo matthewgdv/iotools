@@ -2,18 +2,18 @@ from __future__ import annotations
 
 import argparse
 import inspect
-import os
 import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
 from subtypes import Enum, Frame, Str
-from pathmagic import File, Dir
 from miscutils import is_running_in_ipython, NameSpaceDict
+import miscutils
 
 from .widget import WidgetManager
 from .argsgui import ArgsGui
 from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
+import iohandler
 
 # TODO: implement argument profiles
 
@@ -28,6 +28,10 @@ class ArgType(Enum):
     DateTime, Frame = DateTimeValidator, Frame
 
 
+class Config(miscutils.Config):
+    app_name = iohandler.__name__
+
+
 class IOHandler:
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
@@ -35,14 +39,14 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    def __init__(self, app_name: str = None, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
-        self.app_name, self.app_desc, self.run_mode, self.strict = app_name, app_desc, run_mode, strict
-        self.args: NameSpace = None
-        self.outfile = self._latest = None  # type: File
-        self.outdir: Dir = None
-        self._arguments: List[Argument] = []
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.strict, self.config = app_name, app_desc, run_mode, strict, Config()
 
-        self._workfolder_setup()
+        workfolder = self.config.appdata.newdir(self.app_name)
+        self.outfile, self.outdir, self._latest = workfolder.newfile("output", "txt"), workfolder.newdir("output"), workfolder.newfile("latest", "pkl")
+
+        self.args: NameSpaceDict = None
+        self._arguments: List[Argument] = []
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -68,7 +72,7 @@ class IOHandler:
         arg = Argument(name=name, aliases=aliases, argtype=argtype, default=default, optional=optional, nullable=nullable, choices=choices, condition=condition, magnitude=magnitude, info=info)
         self._arguments.append(arg)
 
-    def collect_input(self, arguments: Dict[str, Any] = None) -> NameSpace:
+    def collect_input(self, arguments: Dict[str, Any] = None) -> NameSpaceDict:
         if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
         elif self.run_mode == RunMode.GUI:
@@ -164,18 +168,6 @@ class IOHandler:
 
     def _generate_args_namespace(self) -> None:
         self.args = NameSpaceDict({arg.name: arg.value for arg in self.arguments})
-
-    def _workfolder_setup(self) -> None:
-        if is_running_in_ipython():
-            current_dir = os.getcwd()
-            self.app_name = Maybe(self.app_name).else_("unknown")
-        else:
-            main = File.from_main()
-            current_dir = main.dir.path
-            self.app_name = Maybe(self.app_name).else_(main.prename)
-
-        workfolder = Dir(current_dir).newdir("__workfolders__").newdir(self.app_name)
-        self.outfile, self.outdir, self._latest = workfolder.newfile("output", "txt"), workfolder.newdir("output"), workfolder.newfile("latest", "pkl")
 
 
 class Argument:
