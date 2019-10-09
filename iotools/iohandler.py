@@ -13,7 +13,7 @@ import miscutils
 from .widget import WidgetManager
 from .argsgui import ArgsGui
 from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
-import iohandler
+import iotools
 
 # TODO: implement argument profiles
 
@@ -29,7 +29,7 @@ class ArgType(Enum):
 
 
 class Config(miscutils.Config):
-    app_name = iohandler.__name__
+    app_name = iotools.__name__
 
 
 class IOHandler:
