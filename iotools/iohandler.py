@@ -42,8 +42,8 @@ class IOHandler:
     def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
         self.app_name, self.app_desc, self.run_mode, self.strict, self.config = app_name, app_desc, run_mode, strict, Config()
 
-        workfolder = self.config.appdata.newdir(self.app_name)
-        self.outfile, self.outdir, self._latest = workfolder.newfile("output", "txt"), workfolder.newdir("output"), workfolder.newfile("latest", "pkl")
+        workfolder = self.config.appdata.new_dir(self.app_name)
+        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
 
         self.args: NameSpaceDict = None
         self._arguments: List[Argument] = []
@@ -97,9 +97,9 @@ class IOHandler:
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         if outfile:
-            self.outfile.open()
+            self.outfile.start()
         if outdir:
-            self.outdir.open()
+            self.outdir.start()
 
     def clear_output(self, outfile: bool = True, outdir: bool = True) -> None:
         if outfile:
