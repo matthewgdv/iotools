@@ -115,7 +115,7 @@ class IOHandler:
         ArgsGui(handler=self)
 
     def _run_from_commandline(self) -> None:
-        ArgsCommandLineParser(handler=self)
+        ArgParserHandler(handler=self)
 
     def _run_programatically(self, arguments: Dict[str, Any]) -> None:
         if arguments:
@@ -218,7 +218,7 @@ class Condition:
             return self.condition.__name__
 
 
-class ArgsCommandLineParser:
+class ArgParserHandler:
     def __init__(self, handler: IOHandler, args: List[str] = None) -> None:
         self.handler = handler
 
