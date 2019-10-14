@@ -10,10 +10,12 @@ from miscutils import is_running_in_ipython
 
 from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager, WidgetFrame, MainWindow
 
-# TODO: replace all instances of addWidget with assignment to parent property
-
 
 class Gui(Qcore.QObject):
+    """
+    A Gui class that abstracts most of the PyQt5 internals behind a consistent API.
+    Widgets can be stacked onto a parent by calling WidgetManager.stack() while within the context of their parent (a WidgetFrame or a Gui).
+    """
     app, stack = Qwidgets.QApplication([]), []
 
     def __init__(self, name: str = None):
@@ -32,10 +34,12 @@ class Gui(Qcore.QObject):
         Gui.stack.pop(-1)
 
     def start_loop(self) -> None:
+        """Begin the event loop. Will block until 'Gui.end_loop' is called."""
         self.window.show()
         self.app.exec()
 
     def end_loop(self) -> None:
+        """End the event loop and resume the execution of the program."""
         self.window.hide()
         self.app.quit()
 
@@ -48,6 +52,8 @@ class Gui(Qcore.QObject):
 
 
 class FormGui(Gui):
+    """Gui with 3 separate segments, a title segment, a main segment, and a button segment."""
+
     def __init__(self, name: str = None):
         super().__init__(name=name)
         with self.window:
@@ -59,6 +65,8 @@ class FormGui(Gui):
 
 
 class HtmlGui(Gui):
+    """Gui designed to render an HTML string in a separate window."""
+
     def __init__(self, name: str = None, text: str = None) -> None:
         super().__init__(name=name)
         with self:
@@ -68,6 +76,11 @@ class HtmlGui(Gui):
 
 
 class ProgressBarGui(Gui):
+    """
+    A wrapper around an iterable that creates a progressbar and updates it as it is iterated over.
+    Currently does not work fully asynchronously and will hang noticeably if any steps take longer than a split-second.
+    """
+
     def __init__(self, iterable: Collection[Any], name: str = None, text: str = None) -> None:
         super().__init__(name=name)
 

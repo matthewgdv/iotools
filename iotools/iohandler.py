@@ -19,16 +19,19 @@ import iotools
 
 
 class RunMode(Enum):
+    """An Enum of the various run modes an IOHandler accepts."""
     SMART, COMMANDLINE, GUI, PROGRAMMATIC = "smart", "commandline", "gui", "programmatic"
 
 
 class ArgType(Enum):
+    """An Enum of the various argument types an IOHandler understands."""
     String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
     DateTime, Frame = DateTimeValidator, Frame
 
 
 class Config(miscutils.Config):
+    """A config class granting access to an os-specific appdata directory for use by this application."""
     app_name = iotools.__name__
 
 
@@ -56,10 +59,12 @@ class IOHandler:
 
     @property
     def arguments(self) -> List[Argument]:
+        """A read-only property controlling access to this IOHandler's argument collection."""
         return self._arguments
 
     def add_arg(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
                 choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
+        """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
 
         self._validate_arg_name(name)
 
@@ -73,6 +78,7 @@ class IOHandler:
         self._arguments.append(arg)
 
     def collect_input(self, arguments: Dict[str, Any] = None) -> NameSpaceDict:
+        """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
         if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
         elif self.run_mode == RunMode.GUI:
@@ -96,12 +102,14 @@ class IOHandler:
         return self.args
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
+        """Show the output file and/or folder belonging to this IOHandler."""
         if outfile:
             self.outfile.start()
         if outdir:
             self.outdir.start()
 
     def clear_output(self, outfile: bool = True, outdir: bool = True) -> None:
+        """Clear the output file and/or folder belonging to this IOHandler."""
         if outfile:
             self.outfile.contents = ""
 
@@ -171,6 +179,8 @@ class IOHandler:
 
 
 class Argument:
+    """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
+
     def __init__(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
                  choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
         self.name, self.aliases, self.default, self.nullable, self.magnitude, self.info, self._value = name, aliases, default, nullable, magnitude, info, default
@@ -195,6 +205,7 @@ class Argument:
 
     @property
     def value(self) -> Any:
+        """Property controlling access to the value held by this argument. Setting it will cause validation and coercion to the type of this argument."""
         return self._value
 
     @value.setter
@@ -203,6 +214,8 @@ class Argument:
 
 
 class Condition:
+    """Class representing a condition which an argument value must fulfill in order to be valid."""
+
     def __init__(self, condition: Callable[..., bool]) -> None:
         self.condition = condition
 
@@ -219,6 +232,8 @@ class Condition:
 
 
 class ArgParserHandler:
+    """Helper class to manage an ArgParser on behalf of an IOHandler."""
+
     def __init__(self, handler: IOHandler, args: List[str] = None) -> None:
         self.handler = handler
 
@@ -242,6 +257,8 @@ class ArgParserHandler:
 
 
 class ArgParser(argparse.ArgumentParser):
+    """Subclass of argparse.ArgumentParser with its own helptext formatting."""
+
     def __init__(self, *args: Any, handler: IOHandler = None, **kwargs: Any) -> None:
         self.handler = handler
         super().__init__(*args, **kwargs)

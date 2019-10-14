@@ -15,11 +15,15 @@ from miscutils import issubclass_safe
 
 
 class TypeConversionError(typepy.TypeConversionError):
+    """An exception class representing failed conversion of one type to another."""
+
     def __init__(self, validator: Validator, value: Any) -> None:
         super().__init__(f"Failed {'strict' if validator.strict else 'permissive'}, {'' if validator.nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
 
 
 class Condition:
+    """A class representing a condition which must be met in order for a value to pass validation."""
+
     def __init__(self, condition: Callable[..., bool], name: str = None) -> None:
         self.condition, self.name = condition, name
 
@@ -33,14 +37,17 @@ class Condition:
         return self.condition(input_val)
 
 
-class GenericMeta(type):
-    def __getitem__(cls, key: Any) -> GenericMeta:
+class TypedCollectionMeta(type):
+    """A metaclass to drive the use of customizable validators for typed collections."""
+
+    def __getitem__(cls, key: Any) -> TypedCollectionMeta:
         newcls = copy.deepcopy(cls)
         newcls._default_generic_type = key
         return newcls
 
 
 class Validator:
+    """Abstract validator class providing the interface for concrete validators. The most important methods are Validator.is_valid() and Validator.convert()."""
     dtype = None
     converter = None
 
@@ -124,6 +131,7 @@ class Validator:
 
 
 class AnythingValidator(Validator):
+    """A validator that will always return True on Validator.is_valid() and will return the original value on Validator.convert()."""
     class Anything:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -138,6 +146,7 @@ class AnythingValidator(Validator):
 
 
 class UnknownTypeValidator(Validator):
+    """A validator that will always return True on Validator.is_valid() and will use the constructor provided to it as a callback for Validator.convert()."""
     converter = AnythingValidator.Anything
 
     def __init__(self, constructor: Any, *args: Any, **kwargs: Any) -> None:
@@ -149,10 +158,12 @@ class UnknownTypeValidator(Validator):
 
 
 class BoolValidator(Validator):
+    """A validator that can handle booleans."""
     dtype, converter = bool, typepy.Bool
 
 
 class StringValidator(Validator):
+    """A validator that can handle strings."""
     dtype, converter = str, typepy.String
 
     def max_len(self, length: int) -> StringValidator:
@@ -165,6 +176,7 @@ class StringValidator(Validator):
 
 
 class IntegerValidator(Validator):
+    """A validator that can handle integers."""
     dtype, converter = int, typepy.Integer
 
     def max_value(self, value: int) -> IntegerValidator:
@@ -177,6 +189,7 @@ class IntegerValidator(Validator):
 
 
 class FloatValidator(Validator):
+    """A validator that can handle floats."""
     dtype, converter = float, typepy.RealNumber
 
     def max_value(self, value: float) -> FloatValidator:
@@ -188,7 +201,8 @@ class FloatValidator(Validator):
         return self
 
 
-class ListValidator(Validator, metaclass=GenericMeta):
+class ListValidator(Validator, metaclass=TypedCollectionMeta):
+    """A validator that can handle lists. Item access can be used to create a new validator class that will also validate the type of the list members."""
     dtype, converter, _default_generic_type = list, typepy.List, None
 
     def __init__(self, **kwargs: Any) -> None:
@@ -229,7 +243,8 @@ class ListValidator(Validator, metaclass=GenericMeta):
             return [validator(item) for item in super().convert(value)]
 
 
-class DictionaryValidator(Validator, metaclass=GenericMeta):
+class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
+    """A validator that can handle dicts. Item access can be used to create a new validator class that will also validate the type of the dict's keys and values."""
     dtype, converter, _default_generic_type = dict, typepy.Dictionary, None
 
     def __init__(self, **kwargs: Any) -> None:
@@ -274,6 +289,7 @@ class DictionaryValidator(Validator, metaclass=GenericMeta):
 
 
 class DateTimeValidator(Validator):
+    """A validator that can handle datetimes. Returns a subtypes.DateTime instance on Validator.convert(). If a datetime.datetime object is desired, call DateTime.to_datetime()."""
     dtype, converter = dt.date, typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
@@ -290,6 +306,7 @@ class DateTimeValidator(Validator):
 
 
 class PathValidator(Validator):
+    """A validator that can handle filesystem paths. returns a pathlib.Path instance on Validator.convert()."""
     class Path:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -309,6 +326,7 @@ class PathValidator(Validator):
 
 
 class FileValidator(Validator):
+    """A validator that can handle filesystem paths which are files. returns a pathmagic.File instance on Validator.convert()."""
     class File:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -326,6 +344,7 @@ class FileValidator(Validator):
 
 
 class DirValidator(Validator):
+    """A validator that can handle filesystem paths which are folders. returns a pathmagic.Dir instance on Validator.convert()."""
     class Dir:
         def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
             self.value = value
@@ -343,12 +362,14 @@ class DirValidator(Validator):
 
 
 class Validate(Enum):
+    """An Enum containing a list of all known validators."""
     Int, Float, Bool, Str, List, Dict, DateTime = IntegerValidator, FloatValidator, BoolValidator, StringValidator, ListValidator, DictionaryValidator, DateTimeValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
 
     @classmethod
-    def Type(self, dtype: Any, **kwargs: Any) -> Validator:
-        dtypes = {member.value.dtype: member.value for member in self}
+    def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
+        """Return a validator appropriate to the dtype passed."""
+        dtypes = {member.value.dtype: member.value for member in cls}
         dtypes.update({None: AnythingValidator})
         validator = dtypes.get(dtype)
 
