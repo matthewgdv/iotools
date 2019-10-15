@@ -16,6 +16,9 @@ from .validator import Validate, StringValidator, IntegerValidator, FloatValidat
 import iotools
 
 # TODO: implement argument profiles
+# TODO: implement mutually exclusive argument gruops
+# TODO: implement dependent arguments
+# TODO: implement verbs
 
 
 class RunMode(Enum):
