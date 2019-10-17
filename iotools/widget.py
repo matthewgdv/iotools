@@ -306,8 +306,8 @@ class PathSelect(WidgetFrame):
         """Open an operating-system specific path entry dialog."""
         path_string = self.text
         starting_dir = Dir.from_desktop() if not path_string else (os.path.dirname(path_string) if os.path.isfile(path_string) else path_string)
-        selection = os.path.abspath(self.path_method(caption=self.prompt, directory=str(starting_dir)))
-        self.state = selection[0] if isinstance(selection, tuple) else selection
+        selection = self.path_method(caption=self.prompt, directory=str(starting_dir))
+        self.state = os.path.abspath(selection[0] if isinstance(selection, tuple) else selection)
 
 
 class FileSelect(PathSelect):
