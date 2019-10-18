@@ -36,7 +36,7 @@ class Gui(QtWidgets.QWidget, WidgetHandler):
         Gui.stack.pop(-1)
 
     def start_loop(self) -> None:
-        """Begin the event loop. Will block until 'Gui.end_loop' is called."""
+        """Begin the event loop. Will block until 'Gui.end_loop()' is called."""
         self.show()
         self.app.exec()
 
@@ -46,6 +46,7 @@ class Gui(QtWidgets.QWidget, WidgetHandler):
         self.app.quit()
 
     def kill(self) -> None:
+        """Exit out of the the current python interpreter. Raises RuntimeError in an interactive IPython session. Automatically called if the Gui quits unexpectedly."""
         if is_running_in_ipython():
             self.app.quit()
             raise RuntimeError("I/O GUI has closed unexpectedly.")

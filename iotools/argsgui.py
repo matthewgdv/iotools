@@ -16,6 +16,8 @@ if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
 
 
+# TODO: implement verbs
+
 class ArgFrame(WidgetHandler):
     """A Frame widget which accepts an argument and sets up a label and toggle for the given widget."""
 
@@ -116,7 +118,7 @@ class ArgsGui(FormGui):
     def populate_main_segment(self) -> None:
         """Add widget(s) to the main segment."""
         with self.main:
-            for arg in self.handler.arguments:
+            for arg in self.handler.arguments.values():
                 frame = ArgFrame.from_arg(arg).stack()
                 arg._widget = frame
 
@@ -136,7 +138,7 @@ class ArgsGui(FormGui):
     def synchronize_states(self) -> List[str]:
         """Set the value of the handler's arguments with the state of their widgets, producing warnings for any exceptions that occur."""
         warnings = []
-        for arg in self.handler.arguments:
+        for arg in self.handler.arguments.values():
             try:
                 arg.value = arg._widget.state
             except Exception as ex:
@@ -153,7 +155,7 @@ class ArgsGui(FormGui):
         else:
             print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
             label.state = "Validation Passed!"
-            label.widget.setToolTip("\n".join([f"{arg.name} = {arg.value}" for arg in self.handler.arguments]))
+            label.widget.setToolTip("\n".join([f"{name} = {arg.value}" for name, arg in self.handler.arguments.items()]))
 
     def fetch_latest(self) -> None:
         """Load the handler's latest valid arguments profile and set the widgets accordingly."""
@@ -176,7 +178,7 @@ class ArgsGui(FormGui):
             print("ERROR: Cannot proceed until the following warnings have been resolved:")
             print("\n".join(warnings), "\n")
         else:
-            print(f"PROCEEDING\nThe following arguments will be passed to the program:\n{ {arg.name : arg.value for arg in self.handler.arguments} }\n")
-            for arg in self.handler.arguments:
+            print(f"PROCEEDING\nThe following arguments will be passed to the program:\n{ {name : arg.value for name, arg in self.handler.arguments.items()} }\n")
+            for arg in self.handler.arguments.values():
                 arg._widget = None
             self.end_loop()

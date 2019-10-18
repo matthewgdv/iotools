@@ -7,18 +7,17 @@ from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
 from subtypes import Enum, Frame, Str
-from miscutils import is_running_in_ipython, NameSpaceDict
+from miscutils import NameSpaceDict
 import miscutils
 
 from .widget import WidgetHandler
 from .argsgui import ArgsGui
-from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
+from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
 import iotools
 
 # TODO: implement argument profiles
 # TODO: implement mutually exclusive argument gruops
 # TODO: implement dependent arguments
-# TODO: implement verbs
 
 
 class RunMode(Enum):
@@ -45,61 +44,62 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, strict: bool = False) -> None:
-        self.app_name, self.app_desc, self.run_mode, self.strict, self.config = app_name, app_desc, run_mode, strict, Config()
-
-        workfolder = self.config.appdata.new_dir(self.app_name)
-        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
-
+    def __init__(self, app_name: str, app_desc: str = "", name: str = None, run_mode: str = RunMode.SMART, config: Config = None) -> None:
+        self.app_name, self.app_desc, self.name, self.run_mode, self.config = app_name, app_desc, Maybe(name).else_(app_name), run_mode, Config() if config is None else config
+        self.arguments: Dict[str, Argument] = {}
+        self.subcommands: Dict[str, IOHandler] = {}
         self.args: NameSpaceDict = None
-        self._arguments: List[Argument] = []
+        self._parser: ArgParser = None
+
+        workfolder = self.config.appdata.new_dir(self.app_name).new_dir(self.name)
+        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
     def __getitem__(self, key: str) -> Any:
-        return getattr(self, key)
-
-    @property
-    def arguments(self) -> List[Argument]:
-        """A read-only property controlling access to this IOHandler's argument collection."""
-        return self._arguments
+        return self.subcommands[key]
 
     def add_arg(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
-                choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
+                choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> Argument:
         """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
 
         self._validate_arg_name(name)
-
-        if aliases is None:
-            aliases = []
-
         shortform = self._determine_shortform_alias(name)
+
+        aliases = [] if aliases is None else aliases
         aliases = [shortform, *aliases] if shortform is not None else aliases
 
         arg = Argument(name=name, aliases=aliases, argtype=argtype, default=default, optional=optional, nullable=nullable, choices=choices, condition=condition, magnitude=magnitude, info=info)
-        self._arguments.append(arg)
+        self.arguments[name] = arg
 
-    def collect_input(self, arguments: Dict[str, Any] = None) -> NameSpaceDict:
+        return arg
+
+    def add_subcommand(self, name: str) -> IOHandler:
+        """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
+        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, config=self.config)
+        self.subcommands[name] = subcommand
+        return subcommand
+
+    def collect_input(self, arguments: Dict[str, Any] = None, subcommand: str = None) -> NameSpaceDict:
         """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
         if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
         elif self.run_mode == RunMode.GUI:
-            self._run_as_gui(arguments=arguments)
+            self._run_as_gui(arguments=arguments, subcommand=subcommand)
         elif self.run_mode == RunMode.PROGRAMMATIC:
-            self._run_programatically(arguments=arguments)
+            self._run_programatically(arguments=arguments, subcommand=subcommand)
         elif self.run_mode == RunMode.SMART:
-            if is_running_in_ipython() or inspect.getmodule(inspect.stack()[1][0]).__name__ != "__main__":
-                self._run_programatically(arguments=arguments)
+            if subcommand or arguments:
+                self._run_programatically(arguments=arguments, subcommand=subcommand)
             else:
                 if not sys.argv[1:]:
-                    self._run_as_gui(arguments=arguments)
+                    self._run_as_gui(arguments=arguments, subcommand=subcommand)
                 else:
                     self._run_from_commandline()
         else:
             RunMode.raise_if_not_a_member(self.run_mode)
 
-        self._generate_args_namespace()
         self._save_latest_input_config()
 
         return self.args
@@ -119,18 +119,34 @@ class IOHandler:
         if outdir:
             self.outdir.clear()
 
-    def _run_as_gui(self, arguments: Dict[str, Any]) -> None:
+    def _run_programatically(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
         if arguments:
-            self._set_new_argument_defaults(arguments)
+            self._set_arguments_directly(arguments, subcommand=subcommand)
+
+        self.args = NameSpaceDict({name: arg.value for name, arg in self.arguments.items()})
+
+    def _run_as_gui(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
+        if arguments:
+            self._set_new_argument_defaults(arguments, subcommand=subcommand)
 
         ArgsGui(handler=self)
+        self.args = NameSpaceDict({name: arg.value for name, arg in self.arguments.items()})
 
-    def _run_from_commandline(self) -> None:
-        ArgParserHandler(handler=self)
+    def _run_from_commandline(self, args: List[str] = None) -> None:
+        self._parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
+        self._parser.add_arguments_from_handler()
 
-    def _run_programatically(self, arguments: Dict[str, Any]) -> None:
-        if arguments:
-            self._set_arguments_directly(arguments)
+        self._recursively_add_subcommands()
+
+        self.args = NameSpaceDict(vars(self._parser.parse_args() if args is None else self._parser.parse_args(args)))
+
+    def _recursively_add_subcommands(self) -> None:
+        if self.subcommands:
+            subparsers = self._parser.add_subparsers()
+            for name, subcommand in self.subcommands.items():
+                subcommand._parser = subparsers.add_parser(name, prog=subcommand.app_name, description=subcommand.app_desc, handler=subcommand)
+                subcommand._parser.add_arguments_from_handler()
+                subcommand._recursively_add_subcommands()
 
     def _save_latest_input_config(self) -> None:
         self._latest.contents = self.args
@@ -146,7 +162,7 @@ class IOHandler:
         for letter in name:
             if letter.isalnum():
                 failed = letter == "h"
-                for arg in self.arguments:
+                for arg in self.arguments.values():
                     for alias in arg.aliases:
                         if letter == alias:
                             failed = True
@@ -158,27 +174,18 @@ class IOHandler:
                     return letter
 
     def _validate_arg_name(self, name: str) -> None:
-        if name in [argument.name for argument in self._arguments]:
+        if name in self.arguments:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
-        if self.strict and not name.isidentifier():
-            raise NameError(f"Argument name '{name}' is not a valid Python identifier.")
 
-    def _set_arguments_directly(self, arguments: Dict[str, Any]) -> None:
-        for argument in self.arguments:
-            for name, val in arguments.items():
-                if argument.name == name:
-                    argument.value = val
-                    break
+    def _set_arguments_directly(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
+        handler = self if subcommand is None else self.subcommands[subcommand]
+        for name, val in arguments.items():
+            handler.arguments[name].value = val
 
-    def _set_new_argument_defaults(self, arguments: Dict[str, Any]) -> None:
-        for argument in self.arguments:
-            for name, val in arguments.items():
-                if argument.name == name:
-                    argument.default = val
-                    break
-
-    def _generate_args_namespace(self) -> None:
-        self.args = NameSpaceDict({arg.name: arg.value for arg in self.arguments})
+    def _set_new_argument_defaults(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
+        handler = self if subcommand is None else self.subcommands[subcommand]
+        for name, val in arguments.items():
+            handler.arguments[name].default = val
 
 
 class Argument:
@@ -234,37 +241,17 @@ class Condition:
             return self.condition.__name__
 
 
-class ArgParserHandler:
-    """Helper class to manage an ArgParser on behalf of an IOHandler."""
-
-    def __init__(self, handler: IOHandler, args: List[str] = None) -> None:
-        self.handler = handler
-
-        parser = ArgParser(prog=self.handler.app_name, description=self.handler.app_desc, handler=self.handler)
-        parser.add_argument("_", nargs="?")
-        for arg in self.handler.arguments:
-            parser.add_argument(*arg._argparse_aliases, default=arg.default, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
-
-        namespace = parser.parse_args() if args is None else parser.parse_args(args)
-
-        exceptions = []
-        for arg in self.handler.arguments:
-            try:
-                arg.value = getattr(namespace, arg.name)
-            except TypeConversionError as ex:
-                exceptions.append((arg.name, ex))
-
-        if exceptions:
-            print("\n".join([f"[{name}] {ex}" for name, ex in exceptions]), end="\n\n")
-            sys.exit(TypeError("Failed to convert the above arguments to their required types."))
-
-
 class ArgParser(argparse.ArgumentParser):
     """Subclass of argparse.ArgumentParser with its own helptext formatting."""
 
     def __init__(self, *args: Any, handler: IOHandler = None, **kwargs: Any) -> None:
         self.handler = handler
         super().__init__(*args, **kwargs)
+
+    def add_arguments_from_handler(self) -> None:
+        self.add_argument("_", nargs="?")
+        for arg in self.handler.arguments.values():
+            self.add_argument(*arg._argparse_aliases, default=arg.default, type=arg.argtype, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -273,7 +260,7 @@ class ArgParser(argparse.ArgumentParser):
 
     def format_help(self) -> str:
         target_cols = ["name", "aliases", "argtype", "default", "nullable", "info", "choices", "condition"]
-        frame = Frame([arg.__dict__ for arg in self.handler.arguments])
+        frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()])
         frame = frame.fillna_as_none()
         frame.aliases = frame._argparse_aliases
         frame.argtype = frame.argtype.apply(lambda val: str(val))
