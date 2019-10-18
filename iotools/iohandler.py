@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import inspect
+import string
 import sys
 from typing import Any, Callable, Dict, List, Union
 
@@ -50,6 +51,9 @@ class IOHandler:
         self.subcommands: Dict[str, IOHandler] = {}
         self.args: NameSpaceDict = None
         self._parser: ArgParser = None
+
+        self._remaining_letters = set(string.ascii_lowercase)
+        self._remaining_letters.discard("h")
 
         workfolder = self.config.appdata.new_dir(self.app_name).new_dir(self.name)
         self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
@@ -159,18 +163,11 @@ class IOHandler:
             raise FileNotFoundError()
 
     def _determine_shortform_alias(self, name: str) -> str:
-        for letter in name:
-            if letter.isalnum():
-                failed = letter == "h"
-                for arg in self.arguments.values():
-                    for alias in arg.aliases:
-                        if letter == alias:
-                            failed = True
-                        if failed:
-                            break
-                    if failed:
-                        break
-                else:
+        for char in name:
+            if char.isalnum():
+                letter = char.lower()
+                if letter in self._remaining_letters:
+                    self._remaining_letters.remove(letter)
                     return letter
 
     def _validate_arg_name(self, name: str) -> None:
@@ -203,7 +200,7 @@ class Argument:
         if self.condition:
             self.argtype.conditions = [self.condition]
 
-        self.aliases = [self.name, *self.aliases] if self.aliases is not None else [self.name]
+        self.aliases = sorted([self.name, *self.aliases], key=len) if self.aliases is not None else [self.name]
         self._argparse_aliases: List[str] = [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
         self._widget: WidgetHandler = None
 
