@@ -10,7 +10,7 @@ from subtypes import Enum, Frame, Str
 from miscutils import is_running_in_ipython, NameSpaceDict
 import miscutils
 
-from .widget import WidgetManager
+from .widget import WidgetHandler
 from .argsgui import ArgsGui
 from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, TypeConversionError
 import iotools
@@ -198,7 +198,7 @@ class Argument:
 
         self.aliases = [self.name, *self.aliases] if self.aliases is not None else [self.name]
         self._argparse_aliases: List[str] = [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
-        self._widget: WidgetManager = None
+        self._widget: WidgetHandler = None
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"

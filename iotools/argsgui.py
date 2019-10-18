@@ -10,16 +10,16 @@ from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
 from .gui import FormGui
-from .widget import WidgetManager, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
 
 
-class ArgFrame(WidgetManager):
+class ArgFrame(WidgetHandler):
     """A Frame widget which accepts an argument and sets up a label and toggle for the given widget."""
 
-    def __init__(self, argument: Argument, manager: WidgetManager) -> None:
+    def __init__(self, argument: Argument, manager: WidgetHandler) -> None:
         super().__init__()
 
         self.arg, self.manager = argument, manager
@@ -66,7 +66,7 @@ class ArgFrame(WidgetManager):
 
     @classmethod
     def from_arg(cls, arg: Argument) -> ArgFrame:
-        """Create an ArgFrame from the given argument, inferring a WidgetManager type for it, and setting it up."""
+        """Create an ArgFrame from the given argument, inferring a WidgetHandler type for it, and setting it up."""
         dtype = arg.argtype.dtype
 
         if arg.choices is not None:

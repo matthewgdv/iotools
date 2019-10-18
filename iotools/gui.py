@@ -3,44 +3,46 @@ from __future__ import annotations
 import sys
 from typing import Any, List, Collection
 
-from PyQt5 import QtWidgets as Qwidgets
-from PyQt5 import QtCore as Qcore
+from PyQt5 import QtWidgets
 
 from miscutils import is_running_in_ipython
 
-from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetManager, WidgetFrame, MainWindow
+from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetHandler, WidgetFrame
 
 
-class Gui(Qcore.QObject):
+class Gui(QtWidgets.QWidget, WidgetHandler):
     """
     A Gui class that abstracts most of the PyQt5 internals behind a consistent API.
-    Widgets can be stacked onto a parent by calling WidgetManager.stack() while within the context of their parent (a WidgetFrame or a Gui).
+    Widgets can be stacked onto a parent by calling WidgetHandler.stack() while within the context of their parent (a WidgetFrame or a Gui).
     """
-    app, stack = Qwidgets.QApplication([]), []
+    app, stack = QtWidgets.QApplication([]), []
 
-    def __init__(self, name: str = None):
+    def __init__(self, name: str = None, layout: Any = QtWidgets.QVBoxLayout):
         super().__init__()
-        self.children: List[WidgetManager] = []
-        self.window = MainWindow(gui=self)
+        self.children: List[WidgetHandler] = []
+        self._parent: WidgetHandler = None
+
+        self.widget, self.layout = self, layout()
+        self.widget.setLayout(self.layout)
 
         if name is not None:
             self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
 
     def __enter__(self) -> Gui:
-        Gui.stack.append(self.window)
-        return self.window
+        Gui.stack.append(self)
+        return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         Gui.stack.pop(-1)
 
     def start_loop(self) -> None:
         """Begin the event loop. Will block until 'Gui.end_loop' is called."""
-        self.window.show()
+        self.show()
         self.app.exec()
 
     def end_loop(self) -> None:
         """End the event loop and resume the execution of the program."""
-        self.window.hide()
+        self.hide()
         self.app.quit()
 
     def kill(self) -> None:
@@ -50,13 +52,16 @@ class Gui(Qcore.QObject):
         else:
             sys.exit()
 
+    def closeEvent(self, event: Any) -> None:
+        self.kill()
+
 
 class FormGui(Gui):
     """Gui with 3 separate segments, a title segment, a main segment, and a button segment."""
 
     def __init__(self, name: str = None):
         super().__init__(name=name)
-        with self.window:
+        with self:
             self.title, self.main, self.buttons = WidgetFrame(horizontal=True).stack(), WidgetFrame(horizontal=False).stack(), WidgetFrame(horizontal=True).stack()
 
     def start_loop(self):
@@ -84,7 +89,7 @@ class ProgressBarGui(Gui):
     def __init__(self, iterable: Collection[Any], name: str = None, text: str = None) -> None:
         super().__init__(name=name)
 
-        self.iterable, self.count, self.widget = iterable, 0, Qwidgets.QWidget()
+        self.iterable, self.count, self.widget = iterable, 0, QtWidgets.QWidget()
 
         self.label = Label(text=text) if text is not None else None
         self.bar = ProgressBar(length=len(self.iterable))

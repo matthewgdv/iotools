@@ -15,10 +15,10 @@ from pathmagic import PathLike, Dir
 from .validator import Validate, Validator
 
 if TYPE_CHECKING:
-    from ..gui.gui import Gui
+    from .gui import Gui
+    assert Gui
 
-# TODO: Add email selector WidgetManager
-# TODO: Add third state for checkboxes
+# TODO: Add email selector WidgetHandler
 
 
 class TemporarilyDisconnect:
@@ -40,18 +40,21 @@ class TemporarilyDisconnect:
         self.signal.connect(self.callback)
 
 
-class WidgetManager:
+class WidgetHandler:
     """An abstract widget manager class for concrete widgets to inherit from which guarantees a consistent interface for handling widgets, abstracting away the PyQt5 internals."""
 
     def __init__(self) -> None:
         self.widget = self.get_state = self.set_state = self.get_text = self.set_text = None  # type: Any
-        self.children: list = []
+        self.children: List[WidgetHandler] = []
         self._parent: Any = None
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
+        return f"""{type(self).__name__}(parent={self._parent}, children={f"[{', '.join([str(child) for child in self.children])}]" if self.children else None})"""
 
-    def __enter__(self) -> WidgetManager:
+    def __str__(self) -> str:
+        return type(self).__name__
+
+    def __enter__(self) -> WidgetHandler:
         from .gui import Gui
         Gui.stack.append(self)
         return self
@@ -99,24 +102,14 @@ class WidgetManager:
 
         self.parent.layout.addWidget(self.widget)
 
-    def stack(self) -> WidgetManager:
+    def stack(self) -> WidgetHandler:
         """Stack this widget onto the last widget or gui element within context (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
         from .gui import Gui
         self.parent = Gui.stack[-1]
         return self
 
 
-class MainWindow(QtWidgets.QWidget, WidgetManager):
-    def __init__(self, gui: Gui, layout: Any = QtWidgets.QVBoxLayout) -> None:
-        super().__init__()
-        self.gui, self.widget, self.layout = gui, self, layout()
-        self.widget.setLayout(self.layout)
-
-    def closeEvent(self, event: Any) -> None:
-        self.gui.kill()
-
-
-class WidgetFrame(WidgetManager):
+class WidgetFrame(WidgetHandler):
     """A manager class for a simple Frame widget which can contain other widgets."""
 
     def __init__(self, horizontal: bool = True):
@@ -152,7 +145,7 @@ class WidgetFrame(WidgetManager):
         self.widget.setLayout(self.outer_layout)
 
 
-class Label(WidgetManager):
+class Label(WidgetHandler):
     """A manager class for a simple Label widget which can display text."""
 
     def __init__(self, text: str = None) -> None:
@@ -165,7 +158,7 @@ class Label(WidgetManager):
         self.set_text = self.set_state = self.widget.setText
 
 
-class Button(WidgetManager):
+class Button(WidgetHandler):
     """A manager class for a simple Button widget which can trigger a callback when pushed."""
 
     def __init__(self, text: str = None, command: Callable = None) -> None:
@@ -178,19 +171,32 @@ class Button(WidgetManager):
         self.widget.clicked.connect(command)
 
 
-class Checkbox(WidgetManager):
+class Checkbox(WidgetHandler):
     """A manager class for a simple Checkbox widget which can be in the checked or unchecked state."""
 
-    def __init__(self, state: bool = False, text: str = None, command: Callable = None) -> None:
+    _states_to_values, _values_to_states = {0: False, 1: None, 2: True}, {False: 0, None: 1, True: 2}
+
+    def __init__(self, state: bool = False, text: str = None, tristate: bool = False, command: Callable = None) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QCheckBox(text or "")
-        self.get_state, self.set_state = self.widget.isChecked, self.widget.setChecked
         self.get_text, self.set_text = self.widget.text, self.widget.setText
 
-        self.state = Maybe(state).else_(False)
+        if tristate:
+            self.widget.setTristate(True)
+
         if command is not None:
             self.widget.clicked.connect(command)
+
+        self.state = Maybe(state).else_(False)
+
+    @property
+    def state(self) -> Dict[str, bool]:
+        return self._states_to_values[self.widget.checkState()]
+
+    @state.setter
+    def state(self, val: Dict[str, bool]) -> None:
+        self.widget.setCheckState(self._values_to_states[val])
 
 
 class CheckBar(WidgetFrame):
@@ -216,7 +222,7 @@ class CheckBar(WidgetFrame):
             checkbox.state = val[checkbox.text]
 
 
-class DropDown(WidgetManager):
+class DropDown(WidgetHandler):
     """A manager class for a simple DropDown widget which can display several options."""
 
     def __init__(self, choices: List[str] = None, state: str = None) -> None:
@@ -237,7 +243,7 @@ class DropDown(WidgetManager):
         self.widget.insertItems(0, val)
 
 
-class Entry(WidgetManager):
+class Entry(WidgetHandler):
     """A manager class for a simple text Entry widget which can capture text."""
 
     def __init__(self, state: str = None) -> None:
@@ -256,7 +262,7 @@ class Entry(WidgetManager):
         self.set_state(str(Maybe(val).else_("")))
 
 
-class Text(WidgetManager):
+class Text(WidgetHandler):
     """A manager class for a simple text Text widget which can capture text and has editor-like features."""
 
     def __init__(self, state: str = None, magnitude: int = 3) -> None:
@@ -320,7 +326,7 @@ class DirSelect(PathSelect):
     path_method, prompt = staticmethod(QtWidgets.QFileDialog.getExistingDirectory), "Select Dir"
 
 
-class Calendar(WidgetManager):
+class Calendar(WidgetHandler):
     """A manager class for a simple Calendar widget which direct the user to select a date."""
 
     def __init__(self, state: Union[DateTime, dt.date] = None) -> None:
@@ -342,7 +348,7 @@ class Calendar(WidgetManager):
         self.widget.setSelectedDate(QtCore.QDate(val.year, val.month, val.day))
 
 
-class DateTimeEdit(WidgetManager):
+class DateTimeEdit(WidgetHandler):
     """A manager class for a simple DateTimeEdit widget which direct the user to enter a datetime at a level of precision indicated by the magnitude argument."""
 
     def __init__(self, state: Union[DateTime, dt.date] = None, magnitude: int = 2) -> None:
@@ -365,7 +371,7 @@ class DateTimeEdit(WidgetManager):
         self.widget.setDateTime(QtCore.QDateTime(QtCore.QDate(val.year, val.month, val.day), QtCore.QTime(val.hour, val.minute, val.second)))
 
 
-class HtmlDisplay(WidgetManager):
+class HtmlDisplay(WidgetHandler):
     """A manager class for a simple HtmlDisplay widget which can render an HTML string."""
 
     def __init__(self, text: str = None) -> None:
@@ -380,7 +386,7 @@ class HtmlDisplay(WidgetManager):
         self.text = text
 
 
-class ProgressBar(WidgetManager):
+class ProgressBar(WidgetHandler):
     """A manager class for a simple ProgressBar widget which can display and update a progress bar."""
 
     def __init__(self, length: int = None):
@@ -393,7 +399,7 @@ class ProgressBar(WidgetManager):
         self.widget.setRange(0, length)
 
 
-class Table(WidgetManager):
+class Table(WidgetHandler):
     """A manager class for a simple Table widget which can prompt the user to fill out a table."""
     TableItem = QtWidgets.QTableWidgetItem
 
