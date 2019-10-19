@@ -7,7 +7,7 @@ from PyQt5 import QtWidgets
 
 from miscutils import is_running_in_ipython
 
-from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetHandler, WidgetFrame
+from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetHandler, HorizontalFrame, VerticalFrame
 
 
 class Gui(QtWidgets.QWidget, WidgetHandler):
@@ -63,7 +63,7 @@ class FormGui(Gui):
     def __init__(self, name: str = None):
         super().__init__(name=name)
         with self:
-            self.title, self.main, self.buttons = WidgetFrame(horizontal=True).stack(), WidgetFrame(horizontal=False).stack(), WidgetFrame(horizontal=True).stack()
+            self.title, self.main, self.buttons = HorizontalFrame().stack(), VerticalFrame().stack(), HorizontalFrame().stack()
 
     def start_loop(self):
         self.main.make_scrollable()

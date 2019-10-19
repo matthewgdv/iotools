@@ -5,8 +5,8 @@ import os
 from typing import Any, Callable, Dict, List, Tuple, Union, TYPE_CHECKING
 import itertools
 
-from PyQt5 import QtCore as QtCore
-from PyQt5 import QtWidgets as QtWidgets
+from PyQt5 import QtCore
+from PyQt5 import QtWidgets
 
 from maybe import Maybe
 from subtypes import DateTime, Frame
@@ -112,13 +112,15 @@ class WidgetHandler:
 class WidgetFrame(WidgetHandler):
     """A manager class for a simple Frame widget which can contain other widgets."""
 
-    def __init__(self, horizontal: bool = True):
+    layout_constructor = QtWidgets.QGridLayout
+
+    def __init__(self):
         super().__init__()
 
-        self.widget, self.layout = QtWidgets.QFrame(), QtWidgets.QHBoxLayout() if horizontal else QtWidgets.QVBoxLayout()
+        self.widget, self.layout = QtWidgets.QFrame(), self.layout_constructor()
 
-        self.layout.setContentsMargins(0, 0, 0, 0)
         self.widget.setLayout(self.layout)
+        self.layout.setContentsMargins(0, 0, 0, 0)
 
     def set_scroll_area_dimensions(self, default_pixels: int = 550):
         """Overridable method used to set the scroll area's dimensions."""
@@ -143,6 +145,14 @@ class WidgetFrame(WidgetHandler):
         self.outer_layout.addWidget(self.scroll_area)
 
         self.widget.setLayout(self.outer_layout)
+
+
+class HorizontalFrame(WidgetFrame):
+    layout_constructor = QtWidgets.QHBoxLayout
+
+
+class VerticalFrame(WidgetFrame):
+    layout_constructor = QtWidgets.QVBoxLayout
 
 
 class Label(WidgetHandler):
@@ -199,7 +209,7 @@ class Checkbox(WidgetHandler):
         self.widget.setCheckState(self._values_to_states[val])
 
 
-class CheckBar(WidgetFrame):
+class CheckBar(HorizontalFrame):
     """A manager class for a list of Checkbox widgets placed into a single widget."""
 
     def __init__(self, choices: Dict[str, bool] = None) -> None:
@@ -286,13 +296,13 @@ class Text(WidgetHandler):
         self.set_state(str(Maybe(val).else_("")))
 
 
-class PathSelect(WidgetFrame):
+class PathSelect(HorizontalFrame):
     """An abstract manager class for a simple PathSelect widget which direct the user to browse for a path."""
     path_method: Any = None
     prompt: str = None
 
     def __init__(self, state: PathLike = None, padding: Tuple[int, int] = (10, 5), button_on_left: bool = True) -> None:
-        super().__init__(horizontal=True)
+        super().__init__()
 
         self.button, self.label = Button(text='Browse...', command=self.browse), Label()
         self.button.widget.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
@@ -312,8 +322,12 @@ class PathSelect(WidgetFrame):
         """Open an operating-system specific path entry dialog."""
         path_string = self.text
         starting_dir = Dir.from_desktop() if not path_string else (os.path.dirname(path_string) if os.path.isfile(path_string) else path_string)
+
         selection = self.path_method(caption=self.prompt, directory=str(starting_dir))
-        self.state = os.path.abspath(selection[0] if isinstance(selection, tuple) else selection)
+
+        new_path = selection[0] if isinstance(selection, tuple) else selection
+        if new_path:
+            self.state = os.path.abspath(new_path)
 
 
 class FileSelect(PathSelect):
@@ -399,6 +413,46 @@ class ProgressBar(WidgetHandler):
         self.widget.setRange(0, length)
 
 
+class TabPage(WidgetHandler):
+    """A manager class for a simple tabbed page widget which can display multiple frames that can be switched between."""
+
+    def __init__(self, page_names: List[str] = None, state: str = None, page_constructor: WidgetHandler = VerticalFrame):
+        super().__init__()
+
+        self.widget, self.page_constructor = QtWidgets.QTabWidget(), page_constructor
+        self.pages: Dict[str, WidgetHandler] = {}
+
+        for name in page_names:
+            self[name] = self.page_constructor()
+
+        if state is not None:
+            self.state = state
+
+    def __getitem__(self, key: str) -> QtWidgets.QWidget:
+        return self.pages[key]
+
+    def __setitem__(self, name: str, val: WidgetFrame) -> None:
+        self.pages[name] = val if val is not None else self.page_constructor()
+        self.widget.addTab(val.widget, name)
+
+        val._parent = self
+        self.children.append(val)
+
+    def __getattr__(self, name: str) -> WidgetFrame:
+        if name in self.pages:
+            return self.pages[name]
+        else:
+            raise AttributeError(name)
+
+    @property
+    def state(self) -> str:
+        return self.widget.tabText(self.widget.currentIndex())
+
+    @state.setter
+    def state(self, val: str) -> None:
+        self.widget.setCurrentWidget(self.pages[val].widget)
+
+
 class Table(WidgetHandler):
     """A manager class for a simple Table widget which can prompt the user to fill out a table."""
     TableItem = QtWidgets.QTableWidgetItem
@@ -461,13 +515,13 @@ class Table(WidgetHandler):
             return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
 
-class GenericTable(WidgetFrame):
+class GenericTable(VerticalFrame):
     """An abstract manager class for a Table widget which can validate the typing of its inputs and convert them to python types."""
     validator: Validator
     state: Any
 
     def __init__(self) -> None:
-        super().__init__(horizontal=False)
+        super().__init__()
 
         self.table, self.textbox = Table(), Text(magnitude=1)
 

@@ -8,7 +8,7 @@ from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
 from subtypes import Enum, Frame, Str
-from miscutils import NameSpaceDict
+from miscutils import NameSpaceDict, lazy_property
 import miscutils
 
 from .widget import WidgetHandler
@@ -45,8 +45,10 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    def __init__(self, app_name: str, app_desc: str = "", name: str = None, run_mode: str = RunMode.SMART, config: Config = None) -> None:
-        self.app_name, self.app_desc, self.name, self.run_mode, self.config = app_name, app_desc, Maybe(name).else_(app_name), run_mode, Config() if config is None else config
+    stack: List[IOHandler] = []
+
+    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, config: Config = None) -> None:
+        self.app_name, self.app_desc, self.name, self.run_mode, self.config = app_name, app_desc, name, run_mode, Config() if config is None else config
         self.arguments: Dict[str, Argument] = {}
         self.subcommands: Dict[str, IOHandler] = {}
         self.args: NameSpaceDict = None
@@ -61,23 +63,12 @@ class IOHandler:
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
 
-    def __getitem__(self, key: str) -> Any:
-        return self.subcommands[key]
+    def __enter__(self) -> IOHandler:
+        self.stack.append(self)
+        return self
 
-    def add_arg(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
-                choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> Argument:
-        """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
-
-        self._validate_arg_name(name)
-        shortform = self._determine_shortform_alias(name)
-
-        aliases = [] if aliases is None else aliases
-        aliases = [shortform, *aliases] if shortform is not None else aliases
-
-        arg = Argument(name=name, aliases=aliases, argtype=argtype, default=default, optional=optional, nullable=nullable, choices=choices, condition=condition, magnitude=magnitude, info=info)
-        self.arguments[name] = arg
-
-        return arg
+    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
+        self.stack.pop()
 
     def add_subcommand(self, name: str) -> IOHandler:
         """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
@@ -85,7 +76,7 @@ class IOHandler:
         self.subcommands[name] = subcommand
         return subcommand
 
-    def collect_input(self, arguments: Dict[str, Any] = None, subcommand: str = None) -> NameSpaceDict:
+    def process(self, arguments: Dict[str, Any] = None, subcommand: str = None) -> NameSpaceDict:
         """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
         if self.run_mode == RunMode.COMMANDLINE:
             self._run_from_commandline()
@@ -123,17 +114,30 @@ class IOHandler:
         if outdir:
             self.outdir.clear()
 
-    def _run_programatically(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
+    def _add_argument(self, argument: Argument) -> None:
+        """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
+
+        self._validate_arg_name(argument.name)
+        shortform = self._determine_shortform_alias(argument.name)
+
+        if shortform is not None:
+            argument.aliases = sorted([shortform, *argument.aliases], key=len)
+
+        self.arguments[argument.name] = argument
+
+    def _run_programatically(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> None:
+        handler = Maybe(subcommand).else_(self)
         if arguments:
-            self._set_arguments_directly(arguments, subcommand=subcommand)
+            handler._set_arguments_directly(arguments)
 
-        self.args = NameSpaceDict({name: arg.value for name, arg in self.arguments.items()})
+        self.args = NameSpaceDict({name: arg.value for name, arg in handler.arguments.items()})
 
-    def _run_as_gui(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
+    def _run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> None:
+        handler = Maybe(subcommand).else_(self)
         if arguments:
-            self._set_new_argument_defaults(arguments, subcommand=subcommand)
+            handler._set_new_argument_defaults(arguments)
 
-        ArgsGui(handler=self)
+        ArgsGui(handler=self, subcommand=subcommand)
         self.args = NameSpaceDict({name: arg.value for name, arg in self.arguments.items()})
 
     def _run_from_commandline(self, args: List[str] = None) -> None:
@@ -159,8 +163,8 @@ class IOHandler:
         if self._latest:
             return self._latest.contents
         else:
-            print(f"No prior configuration found for '{self.app_name}'")
-            raise FileNotFoundError()
+            # print(f"No prior configuration found for '{self.app_name}'")
+            raise FileNotFoundError(f"No prior configuration found for '{self.app_name}'")
 
     def _determine_shortform_alias(self, name: str) -> str:
         for char in name:
@@ -174,23 +178,23 @@ class IOHandler:
         if name in self.arguments:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
 
-    def _set_arguments_directly(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
-        handler = self if subcommand is None else self.subcommands[subcommand]
+    def _set_arguments_directly(self, arguments: Dict[str, Any]) -> None:
         for name, val in arguments.items():
-            handler.arguments[name].value = val
+            self.arguments[name].value = val
 
-    def _set_new_argument_defaults(self, arguments: Dict[str, Any], subcommand: str = None) -> None:
-        handler = self if subcommand is None else self.subcommands[subcommand]
+    def _set_new_argument_defaults(self, arguments: Dict[str, Any]) -> None:
         for name, val in arguments.items():
-            handler.arguments[name].default = val
+            self.arguments[name].default = val
 
 
 class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
-    def __init__(self, name: str, aliases: List[str] = None, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
-                 choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None) -> None:
-        self.name, self.aliases, self.default, self.nullable, self.magnitude, self.info, self._value = name, aliases, default, nullable, magnitude, info, default
+    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
+                 choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None, aliases: List[str] = None) -> None:
+        self.name, self.default, self.nullable, self.magnitude, self.info, self._aliases, self._value = name, default, nullable, magnitude, info, None, default
+        self.aliases = aliases
+        self.widget: WidgetHandler = None
 
         self.choices = choices.values if Enum.is_enum(choices) else (list(choices) if choices is not None else None)
         self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
@@ -199,10 +203,6 @@ class Argument:
         self.argtype = Validate.Type(argtype, nullable=self.nullable, choices=self.choices)
         if self.condition:
             self.argtype.conditions = [self.condition]
-
-        self.aliases = sorted([self.name, *self.aliases], key=len) if self.aliases is not None else [self.name]
-        self._argparse_aliases: List[str] = [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
-        self._widget: WidgetHandler = None
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -218,6 +218,22 @@ class Argument:
     @value.setter
     def value(self, val: Any) -> None:
         self._value = self.argtype.convert(val)
+
+    @property
+    def aliases(self) -> List[str]:
+        return self._aliases
+
+    @aliases.setter
+    def aliases(self, val: List[str]) -> None:
+        self._aliases = [self.name] if val is None else sorted({self.name, *val}, key=len)
+
+    @lazy_property
+    def commandline_aliases(self) -> List[str]:
+        return [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
+
+    def add(self) -> Argument:
+        IOHandler.stack[-1]._add_argument(argument=self)
+        return self
 
 
 class Condition:
@@ -248,7 +264,7 @@ class ArgParser(argparse.ArgumentParser):
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
         for arg in self.handler.arguments.values():
-            self.add_argument(*arg._argparse_aliases, default=arg.default, type=arg.argtype, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
+            self.add_argument(*arg.commandline_aliases, default=arg.default, type=arg.argtype, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -256,10 +272,9 @@ class ArgParser(argparse.ArgumentParser):
         return str(formatter.format_help())
 
     def format_help(self) -> str:
-        target_cols = ["name", "aliases", "argtype", "default", "nullable", "info", "choices", "condition"]
+        target_cols = ["name", "commandline_aliases", "argtype", "default", "nullable", "info", "choices", "condition"]
         frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()])
         frame = frame.fillna_as_none()
-        frame.aliases = frame._argparse_aliases
         frame.argtype = frame.argtype.apply(lambda val: str(val))
         grouped_frames = dict(tuple(frame.groupby("optional")))
 

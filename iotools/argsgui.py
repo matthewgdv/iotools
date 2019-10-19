@@ -6,17 +6,19 @@ from typing import List, Any, TYPE_CHECKING
 import pandas as pd
 from PyQt5 import QtWidgets
 
+from maybe import Maybe
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
 from .gui import FormGui
-from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, TabPage
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
 
 
 # TODO: implement verbs
+# TODO: remove coupling between ArgFrame and Argument (preserve it only in the ArgFrame.from_arg() classmethod)
 
 class ArgFrame(WidgetHandler):
     """A Frame widget which accepts an argument and sets up a label and toggle for the given widget."""
@@ -26,6 +28,8 @@ class ArgFrame(WidgetHandler):
 
         self.arg, self.manager = argument, manager
         self.widget, self.layout = QtWidgets.QGroupBox(), QtWidgets.QHBoxLayout()
+
+        self.arg.widget = self
 
         self.make_label()
         self.make_widget()
@@ -100,12 +104,12 @@ class ArgFrame(WidgetHandler):
 class ArgsGui(FormGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
-    def __init__(self, handler: IOHandler) -> None:
+    def __init__(self, handler: IOHandler, subcommand: str = None) -> None:
         super().__init__(name=handler.app_name)
         self.handler = handler
 
         self.populate_title_segment()
-        self.populate_main_segment()
+        self.populate_tabbed_main_segment(subcommand) if handler.subcommands else self.populate_main_segment()
         self.populate_button_segment()
 
         self.start_loop()
@@ -119,8 +123,17 @@ class ArgsGui(FormGui):
         """Add widget(s) to the main segment."""
         with self.main:
             for arg in self.handler.arguments.values():
-                frame = ArgFrame.from_arg(arg).stack()
-                arg._widget = frame
+                ArgFrame.from_arg(arg).stack()
+
+    def populate_tabbed_main_segment(self, subcommand: IOHandler) -> None:
+        """Add multiple tabs to the main segment and then widget(s) to each of those tabs."""
+        with self.main:
+            with TabPage(page_names=[self.handler.name, *self.handler.subcommands]).stack() as tabs:
+                tabs.state = Maybe(subcommand).else_(self.handler).name
+                for name, handler in self.handler.subcommands.items():
+                    with tabs[name]:
+                        for arg in handler.arguments.values():
+                            ArgFrame.from_arg(arg).stack()
 
     def populate_button_segment(self) -> None:
         """Add widget(s) to the button segment."""
@@ -140,7 +153,7 @@ class ArgsGui(FormGui):
         warnings = []
         for arg in self.handler.arguments.values():
             try:
-                arg.value = arg._widget.state
+                arg.value = arg.widget.state
             except Exception as ex:
                 warnings.append(f"WARNING ({arg}): {ex}")
         return warnings
@@ -159,17 +172,17 @@ class ArgsGui(FormGui):
 
     def fetch_latest(self) -> None:
         """Load the handler's latest valid arguments profile and set the widgets accordingly."""
-        try:
-            last_config = self.handler._load_latest_input_config()
-            for arg in self.handler.arguments:
-                arg._widget.state = last_config[arg.name]
-        except FileNotFoundError:
-            pass
+        # try:
+        last_config = self.handler._load_latest_input_config()
+        for arg in self.handler.arguments:
+            arg.widget.state = last_config[arg.name]
+        # except FileNotFoundError:
+            # pass
 
     def fetch_default(self) -> None:
         """Set all widget states to their argument defaults."""
         for arg in self.handler.arguments:
-            arg._widget.state = arg.default
+            arg.widget.state = arg.default
 
     def try_to_proceed(self) -> None:
         """Validate that the widgets are providing valid arguments, set the argument values accordingly, and if valid end the event loop."""
@@ -180,5 +193,5 @@ class ArgsGui(FormGui):
         else:
             print(f"PROCEEDING\nThe following arguments will be passed to the program:\n{ {name : arg.value for name, arg in self.handler.arguments.items()} }\n")
             for arg in self.handler.arguments.values():
-                arg._widget = None
+                arg.widget = None
             self.end_loop()
