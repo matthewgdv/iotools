@@ -16,10 +16,6 @@ if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
 
 
-# TODO: implement verbs
-# TODO: remove coupling between ArgFrame and Argument (preserve it only in the ArgFrame.from_arg() classmethod)
-
-
 class ArgsGui(FormGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
