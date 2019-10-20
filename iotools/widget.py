@@ -191,9 +191,7 @@ class Checkbox(WidgetHandler):
 
         self.widget = QtWidgets.QCheckBox(text or "")
         self.get_text, self.set_text = self.widget.text, self.widget.setText
-
-        if tristate:
-            self.widget.setTristate(True)
+        self.tristate = tristate
 
         if command is not None:
             self.widget.clicked.connect(command)
@@ -201,12 +199,20 @@ class Checkbox(WidgetHandler):
         self.state = Maybe(state).else_(False)
 
     @property
-    def state(self) -> Dict[str, bool]:
+    def state(self) -> bool:
         return self._states_to_values[self.widget.checkState()]
 
     @state.setter
-    def state(self, val: Dict[str, bool]) -> None:
-        self.widget.setCheckState(self._values_to_states[val])
+    def state(self, val: bool) -> None:
+        self.widget.setCheckState(self._values_to_states[val]) if self.tristate else self.widget.setChecked(val)
+
+    @property
+    def tristate(self) -> bool:
+        return self.widget.isTristate()
+
+    @tristate.setter
+    def tristate(self, val: bool) -> None:
+        return self.widget.setTristate(val)
 
 
 class CheckBar(HorizontalFrame):

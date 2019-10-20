@@ -41,24 +41,27 @@ class Config(miscutils.Config):
 class IOHandler:
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
-    Once instantiated, the collected arguments can be accessed through its 'args' namespace attribute.
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, config: Config = None) -> None:
-        self.app_name, self.app_desc, self.name, self.run_mode, self.config = app_name, app_desc, name, run_mode, Config() if config is None else config
+    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, config: Config = None, parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.name, self.run_mode, self.config, self.parent = app_name, app_desc, name, run_mode, Config() if config is None else config, parent
         self.arguments: Dict[str, Argument] = {}
         self.subcommands: Dict[str, IOHandler] = {}
-        self.args: NameSpaceDict = None
-        self._parser: ArgParser = None
+
+        self.parser: ArgParser = None
+        self.gui: ArgsGui = None
 
         self._remaining_letters = set(string.ascii_lowercase)
         self._remaining_letters.discard("h")
 
-        workfolder = self.config.appdata.new_dir(self.app_name).new_dir(self.name)
-        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
+        if self.parent is None:
+            workfolder = self.config.appdata.new_dir(self.app_name).new_dir(self.name)
+            self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
+        else:
+            self.outfile, self.outdir, self._latest = self.parent.outfile, self.parent.outdir, self.parent._latest.parent.new_dir(self.name).new_file("latest", "pkl")
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -72,32 +75,32 @@ class IOHandler:
 
     def add_subcommand(self, name: str) -> IOHandler:
         """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
-        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, config=self.config)
+        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, config=self.config, parent=self)
         self.subcommands[name] = subcommand
         return subcommand
 
     def process(self, arguments: Dict[str, Any] = None, subcommand: str = None) -> NameSpaceDict:
         """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
         if self.run_mode == RunMode.COMMANDLINE:
-            self._run_from_commandline()
+            namespace = self._run_from_commandline()
         elif self.run_mode == RunMode.GUI:
-            self._run_as_gui(arguments=arguments, subcommand=subcommand)
+            namespace = self._run_as_gui(arguments=arguments, subcommand=subcommand)
         elif self.run_mode == RunMode.PROGRAMMATIC:
-            self._run_programatically(arguments=arguments, subcommand=subcommand)
+            namespace = self._run_programatically(arguments=arguments, subcommand=subcommand)
         elif self.run_mode == RunMode.SMART:
             if subcommand or arguments:
-                self._run_programatically(arguments=arguments, subcommand=subcommand)
+                namespace = self._run_programatically(arguments=arguments, subcommand=subcommand)
             else:
                 if not sys.argv[1:]:
-                    self._run_as_gui(arguments=arguments, subcommand=subcommand)
+                    namespace = self._run_as_gui(arguments=arguments, subcommand=subcommand)
                 else:
-                    self._run_from_commandline()
+                    namespace = self._run_from_commandline()
         else:
             RunMode.raise_if_not_a_member(self.run_mode)
 
-        self._save_latest_input_config()
+        self._save_latest_input_config(namespace=namespace)
 
-        return self.args
+        return namespace
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Show the output file and/or folder belonging to this IOHandler."""
@@ -125,46 +128,42 @@ class IOHandler:
 
         self.arguments[argument.name] = argument
 
-    def _run_programatically(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> None:
+    def _run_programatically(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
         handler = Maybe(subcommand).else_(self)
         if arguments:
-            handler._set_arguments_directly(arguments)
+            handler._set_arguments_from_namespace(arguments)
 
-        self.args = NameSpaceDict({name: arg.value for name, arg in handler.arguments.items()})
+        return NameSpaceDict({name: arg.value for name, arg in handler.arguments.items()})
 
-    def _run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> None:
-        handler = Maybe(subcommand).else_(self)
-        if arguments:
-            handler._set_new_argument_defaults(arguments)
+    def _run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
+        self.gui = ArgsGui(handler=self, arguments=arguments, subcommand=subcommand)
+        self.gui.start_loop()
+        return self.gui.exitpoint._namespace_from_root()
 
-        ArgsGui(handler=self, subcommand=subcommand)
-        self.args = NameSpaceDict({name: arg.value for name, arg in self.arguments.items()})
-
-    def _run_from_commandline(self, args: List[str] = None) -> None:
-        self._parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
-        self._parser.add_arguments_from_handler()
+    def _run_from_commandline(self, args: List[str] = None) -> NameSpaceDict:
+        self.parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
+        self.parser.add_arguments_from_handler()
 
         self._recursively_add_subcommands()
 
-        self.args = NameSpaceDict(vars(self._parser.parse_args() if args is None else self._parser.parse_args(args)))
+        return NameSpaceDict(vars(self.parser.parse_args() if args is None else self.parser.parse_args(args)))
 
     def _recursively_add_subcommands(self) -> None:
         if self.subcommands:
-            subparsers = self._parser.add_subparsers()
+            subparsers = self.parser.add_subparsers()
             for name, subcommand in self.subcommands.items():
-                subcommand._parser = subparsers.add_parser(name, prog=subcommand.app_name, description=subcommand.app_desc, handler=subcommand)
-                subcommand._parser.add_arguments_from_handler()
+                subcommand.parser = subparsers.add_parser(name, prog=subcommand.app_name, description=subcommand.app_desc, handler=subcommand)
+                subcommand.parser.add_arguments_from_handler()
                 subcommand._recursively_add_subcommands()
 
-    def _save_latest_input_config(self) -> None:
-        self._latest.contents = self.args
+    def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
+        self._latest.contents = namespace
 
     def _load_latest_input_config(self) -> Dict[str, Any]:
         if self._latest:
             return self._latest.contents
         else:
-            # print(f"No prior configuration found for '{self.app_name}'")
-            raise FileNotFoundError(f"No prior configuration found for '{self.app_name}'")
+            print(f"No prior configuration found for '{self.app_name}'")
 
     def _determine_shortform_alias(self, name: str) -> str:
         for char in name:
@@ -178,13 +177,34 @@ class IOHandler:
         if name in self.arguments:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
 
-    def _set_arguments_directly(self, arguments: Dict[str, Any]) -> None:
+    def _set_arguments_from_namespace(self, arguments: Dict[str, Any]) -> None:
         for name, val in arguments.items():
             self.arguments[name].value = val
 
-    def _set_new_argument_defaults(self, arguments: Dict[str, Any]) -> None:
-        for name, val in arguments.items():
-            self.arguments[name].default = val
+    def _recursively_clear_widgets(self) -> None:
+        for argument in self.arguments.values():
+            argument.widget = None
+
+        for handler in self.subcommands.values():
+            handler._recursively_clear_widgets()
+
+    def _hierarchy_from_root(self) -> List[IOHandler]:
+        hierarchy = [self]
+        while hierarchy[0].parent is not None:
+            hierarchy.insert(0, hierarchy[0].parent)
+
+        return hierarchy
+
+    def _namespace_from_root(self) -> NameSpaceDict:
+        outer_namespace = namespace = NameSpaceDict()
+        for handler in self._hierarchy_from_root():
+            namespace[handler.name] = handler._namespace_from_arguments()
+            namespace = namespace[handler.name]
+
+        return list(outer_namespace.values())[0]
+
+    def _namespace_from_arguments(self) -> NameSpaceDict:
+        return NameSpaceDict({name: argument.value for name, argument in self.arguments.items()})
 
 
 class Argument:
