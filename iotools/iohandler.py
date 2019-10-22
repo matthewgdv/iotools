@@ -144,17 +144,17 @@ class IOHandler:
         self.parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
         self.parser.add_arguments_from_handler()
 
-        self._recursively_add_subcommands()
+        self._recursively_add_subcommands_to_parser()
 
         return NameSpaceDict(vars(self.parser.parse_args() if args is None else self.parser.parse_args(args)))
 
-    def _recursively_add_subcommands(self) -> None:
+    def _recursively_add_subcommands_to_parser(self) -> None:
         if self.subcommands:
             subparsers = self.parser.add_subparsers()
             for name, subcommand in self.subcommands.items():
                 subcommand.parser = subparsers.add_parser(name, prog=subcommand.app_name, description=subcommand.app_desc, handler=subcommand)
                 subcommand.parser.add_arguments_from_handler()
-                subcommand._recursively_add_subcommands()
+                subcommand._recursively_add_subcommands_to_parser()
 
     def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
         self._latest.contents = namespace
