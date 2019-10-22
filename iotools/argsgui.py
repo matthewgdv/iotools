@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, TYPE_CHECKING
+from typing import Any, List, TYPE_CHECKING
 
 import pandas as pd
 from PyQt5 import QtWidgets
@@ -9,8 +9,8 @@ from PyQt5 import QtWidgets
 from pathmagic import File, Dir
 from miscutils import issubclass_safe, NameSpaceDict
 
-from .gui import FormGui
-from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, TabPage
+from .gui import FormGui, Gui
+from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, TabPage, WidgetFrame
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
@@ -21,23 +21,13 @@ class ArgsGui(FormGui):
 
     def __init__(self, handler: IOHandler, arguments: dict = None, subcommand: str = None) -> None:
         super().__init__(name=handler.app_name)
-        self.handler = self.exitpoint = handler
+        self.handler = handler
+        self.sync = Synchronizer(root_handler=self.handler)
+        self.exitpoint: Node = None
 
         self.populate_title_segment()
         self.populate_main_segment(arguments, subcommand)
         self.populate_button_segment()
-
-    @property
-    def current_command(self) -> IOHandler:
-        if not self.handler.subcommands:
-            return self.handler
-        else:
-            command, page = self.handler, self.main.children[-1]
-            while isinstance(page, TabPage):
-                command = command.subcommands[page.state]
-                page = page[page.state].children[-1]
-
-            return command
 
     def populate_title_segment(self) -> None:
         """Add widget(s) to the title segment."""
@@ -47,34 +37,19 @@ class ArgsGui(FormGui):
     def populate_main_segment(self, arguments: dict, subcommand: IOHandler) -> None:
         """Add tabs to the main segment and then widget(s) to each of those tabs."""
         with self.main:
-            self.recursively_stack_widgets(self.handler)
+            self.sync.create_widgets_recursively()
 
         if subcommand is not None:
-            self.set_active_tabs_from_child_to_root(subcommand)
+            self.sync.set_active_tabs_from_handler_ascending(handler=subcommand)
 
         if arguments is not None:
-            self.set_widgets_from_namespace(namespace=arguments)
-
-    def recursively_stack_widgets(self, handler: IOHandler) -> None:
-        for arg in handler.arguments.values():
-            ArgFrame.from_arg(arg).stack()
-
-        if handler.subcommands:
-            with TabPage(page_names=handler.subcommands).stack() as handler.tabs:
-                for name, subcommand in handler.subcommands.items():
-                    with handler.tabs[name]:
-                        self.recursively_stack_widgets(subcommand)
-
-    def set_active_tabs_from_child_to_root(self, handler: IOHandler) -> None:
-        hierarchy = handler._hierarchy_from_root()
-        for first, second in zip(hierarchy, hierarchy[1:]):
-            first.tabs.state = second.name
+            self.sync.set_widgets_from_namespace_recursively(namespace=arguments)
 
     def populate_button_segment(self) -> None:
         """Add widget(s) to the button segment."""
         with self.buttons:
-            Button(text='Latest Config', command=self.set_widgets_from_last_config).stack()
-            Button(text='Default Config', command=self.set_widgets_from_default_config).stack()
+            Button(text='Latest Config', command=self.sync.set_widgets_from_last_config_at_current_node).stack()
+            Button(text='Default Config', command=self.sync.set_widgets_to_defaults_from_current_node_ascending).stack()
 
             self.buttons.layout.addStretch()
             self.validation_label = Label(text="Not yet validated.").stack()
@@ -89,17 +64,17 @@ class ArgsGui(FormGui):
             print("ERROR: Cannot proceed until the warnings have been resolved...", end="\n\n")
         else:
             print(f"PROCEEDING...", end="\n\n")
-            self.exitpoint = self.current_command
-            self.handler._recursively_clear_widgets()
+            self.exitpoint = self.sync.current_node
+            self.sync.clear_widget_references_recursively()
             self.end_loop()
 
     def set_arguments_from_widgets(self) -> bool:
         """Set the value of the handler's arguments with the state of their widgets, producing warnings for any exceptions that occur."""
 
         prefix, warnings = "", []
-        for handler in self.current_command._hierarchy_from_root():
-            prefix += f"{'.' if prefix else ''}{handler.name}"
-            for arg in handler.arguments.values():
+        for node in self.sync.current_node.get_topdown_hierarchy_ascending():
+            prefix += f"{'.' if prefix else ''}{node.handler.name}"
+            for arg in node.handler.arguments.values():
                 try:
                     arg.value = arg.widget.state
                 except Exception as ex:
@@ -111,33 +86,11 @@ class ArgsGui(FormGui):
             self.validation_label.widget.setToolTip("\n".join(warnings))
             return False
         else:
-            namespace = self.current_command._namespace_from_root()
+            namespace = self.sync.current_node.get_namespace_ascending()
             print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{namespace}\n")
             self.validation_label.state = "Validation Passed!"
             self.validation_label.widget.setToolTip(str(namespace))
             return True
-
-    def set_widgets_from_last_config(self) -> None:
-        """Load the handler's latest valid arguments profile and set the widgets accordingly."""
-        namespace = self.current_command._load_latest_input_config()
-        if namespace is not None:
-            self.set_widgets_from_namespace(namespace=namespace)
-
-    def set_widgets_from_default_config(self) -> None:
-        """Set all widget states to their argument defaults."""
-        for handler in self.current_command._hierarchy_from_root():
-            for arg in handler.arguments.values():
-                arg.widget.state = arg.default
-
-    def set_widgets_from_namespace(self, namespace: NameSpaceDict) -> None:
-        hierarchy = self.current_command._hierarchy_from_root()
-        for handler in hierarchy:
-            if handler is not hierarchy[0] and handler.name in namespace:
-                namespace = namespace[handler.name]
-
-            for name, argument in handler.arguments.items():
-                if name in namespace:
-                    argument.widget.state = namespace[name]
 
 
 class ArgFrame(WidgetHandler):
@@ -219,3 +172,119 @@ class ArgFrame(WidgetHandler):
             return ArgFrame(argument=arg, manager=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")
+
+
+class Synchronizer:
+    def __init__(self, root_handler: IOHandler) -> None:
+        self.root = Node(root_handler, sync=self)
+        self.handler_mappings = {root_handler: self.root}
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
+
+    @property
+    def current_node(self) -> Node:
+        return self.root.get_active_child()
+
+    def create_widgets_recursively(self) -> None:
+        self.root.create_widgets_recursively()
+
+    def set_active_tabs_from_handler_ascending(self, handler: IOHandler) -> None:
+        self.handler_mappings[handler].set_active_tabs_ascending()
+
+    def set_widgets_from_last_config_at_current_node(self) -> None:
+        """Load the latest valid arguments profile at the current node and set the widgets accordingly."""
+        current = self.current_node
+        last_config = current.handler._load_latest_input_config()
+
+        if last_config is not None:
+            current.set_widgets_from_namespace_ascending(last_config)
+
+    def set_widgets_to_defaults_from_current_node_ascending(self) -> None:
+        """Set all widget states to their argument defaults from this node to the root."""
+        self.current_node.set_widgets_to_defaults_ascending()
+
+    def set_widgets_from_namespace_recursively(self, namespace: NameSpaceDict) -> None:
+        self.root.set_widgets_from_namespace_recursively(namespace=namespace)
+
+    def clear_widget_references_recursively(self) -> None:
+        self.root.clear_widget_references_recursively()
+
+
+class Node:
+    def __init__(self, handler: IOHandler, sync: Synchronizer, parent: Node = None) -> None:
+        self.handler, self.parent, self.children, self.sync = handler, parent, {child.name: Node(handler=child, sync=sync, parent=self) for child in handler.subcommands.values()}, sync
+        self.frame: WidgetFrame = None
+        self.page: TabPage = None
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
+
+    def create_widgets_recursively(self) -> None:
+        self.frame = Gui.stack[-1]
+        for arg in self.handler.arguments.values():
+            ArgFrame.from_arg(arg).stack()
+
+        if self.children:
+            with TabPage(page_names=self.children).stack() as self.page:
+                for name, child in self.children.items():
+                    with self.page[name]:
+                        child.create_widgets_recursively()
+
+    def set_active_tabs_ascending(self) -> None:
+        if self.parent is not None:
+            self.parent.page.state = self.handler.name
+            self.parent.set_active_tabs_ascending()
+
+    def get_active_child(self) -> Node:
+        return self if not self.children else self.children[self.page.state].get_active_child()
+
+    def set_widgets_to_defaults_ascending(self) -> None:
+        """Set all widget states to their argument defaults from this node to the root."""
+        for argument in self.handler.arguments.values():
+            argument.widget.state = argument.default
+
+        if self.parent is not None:
+            self.parent.set_widgets_to_defaults_ascending()
+
+    def get_namespace(self) -> NameSpaceDict:
+        return NameSpaceDict({name: argument.value for name, argument in self.handler.arguments.items()})
+
+    def get_namespace_ascending(self) -> NameSpaceDict:
+        outer_namespace = namespace = self.sync.root.get_namespace()
+
+        if self.sync.current_node is not self.sync.root:
+            for node in self.get_topdown_hierarchy_ascending()[1:]:
+                namespace[node.handler.name] = node.get_namespace()
+                namespace = namespace[node.handler.name]
+
+        return outer_namespace
+
+    def set_widgets_from_namespace_ascending(self, namespace: NameSpaceDict) -> None:
+        self.sync.root.set_widgets_from_namespace(namespace=namespace)
+
+        if self.sync.current_node is not self.sync.root:
+            for node in self.get_topdown_hierarchy_ascending()[1:]:
+                namespace = namespace[node.handler.name]
+                node.set_widgets_from_namespace(namespace=namespace)
+
+    def set_widgets_from_namespace(self, namespace: NameSpaceDict) -> None:
+        for name, argument in self.handler.arguments.items():
+            if name in namespace:
+                argument.widget.state = namespace[name]
+
+    def set_widgets_from_namespace_recursively(self, namespace: NameSpaceDict) -> None:
+        self.set_widgets_from_namespace(namespace=namespace)
+        for child in self.children.values():
+            self.set_widgets_from_namespace_recursively(namespace=namespace)
+
+    def clear_widget_references_recursively(self) -> None:
+        for argument in self.handler.arguments.values():
+            argument.widget = None
+
+        for child in self.children.values():
+            child.clear_widget_references_recursively()
+
+    def get_topdown_hierarchy_ascending(self, nodes: List[Node] = None) -> List[Node]:
+        nodes = [self] if nodes is None else [self, *nodes]
+        return nodes if self.parent is None else self.parent.get_topdown_hierarchy_ascending(nodes=nodes)

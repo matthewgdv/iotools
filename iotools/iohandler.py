@@ -138,7 +138,7 @@ class IOHandler:
     def _run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
         self.gui = ArgsGui(handler=self, arguments=arguments, subcommand=subcommand)
         self.gui.start_loop()
-        return self.gui.exitpoint._namespace_from_root()
+        return self.gui.exitpoint.get_namespace_ascending()
 
     def _run_from_commandline(self, args: List[str] = None) -> NameSpaceDict:
         self.parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
@@ -176,35 +176,6 @@ class IOHandler:
     def _validate_arg_name(self, name: str) -> None:
         if name in self.arguments:
             raise NameError(f"Argument '{name}' already attached to this IOHandler.")
-
-    def _set_arguments_from_namespace(self, arguments: Dict[str, Any]) -> None:
-        for name, val in arguments.items():
-            self.arguments[name].value = val
-
-    def _recursively_clear_widgets(self) -> None:
-        for argument in self.arguments.values():
-            argument.widget = None
-
-        for handler in self.subcommands.values():
-            handler._recursively_clear_widgets()
-
-    def _hierarchy_from_root(self) -> List[IOHandler]:
-        hierarchy = [self]
-        while hierarchy[0].parent is not None:
-            hierarchy.insert(0, hierarchy[0].parent)
-
-        return hierarchy
-
-    def _namespace_from_root(self) -> NameSpaceDict:
-        outer_namespace = namespace = NameSpaceDict()
-        for handler in self._hierarchy_from_root():
-            namespace[handler.name] = handler._namespace_from_arguments()
-            namespace = namespace[handler.name]
-
-        return list(outer_namespace.values())[0]
-
-    def _namespace_from_arguments(self) -> NameSpaceDict:
-        return NameSpaceDict({name: argument.value for name, argument in self.arguments.items()})
 
 
 class Argument:
