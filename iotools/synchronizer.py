@@ -85,7 +85,7 @@ class Synchronizer:
 
 class Node:
     def __init__(self, handler: IOHandler, sync: Synchronizer, parent: Node = None) -> None:
-        self.handler, self.parent, self.children, self.sync = handler, parent, {child.name: Node(handler=child, sync=sync, parent=self) for child in handler.subcommands.values()}, sync
+        self.handler, self.parent, self.children, self.sync = handler, parent, {name: Node(handler=child, sync=sync, parent=self) for name, child in handler.subcommands.items()}, sync
         self.page: TabPage = None
         self.parser: ArgParser = None
 

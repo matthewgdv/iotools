@@ -55,11 +55,9 @@ class IOHandler:
         self._remaining_letters = set(string.ascii_lowercase)
         self._remaining_letters.discard("h")
 
-        if self.parent is None:
-            workfolder = self.config.appdata.new_dir(self.app_name).new_dir(self.name)
-            self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
-        else:
-            self.outfile, self.outdir, self._latest = self.parent.outfile, self.parent.outdir, self.parent._latest.parent.new_dir(self.name).new_file("latest", "pkl")
+        self._dir = (self.config.appdata.new_dir(self.app_name) if self.parent is None else self.parent._dir).new_dir(self.name)
+        workfolder = self._dir.new_dir("__io__")
+        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
