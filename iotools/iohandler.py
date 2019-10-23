@@ -11,7 +11,7 @@ from miscutils import NameSpaceDict, lazy_property, is_running_in_ipython
 import miscutils
 
 from .widget import WidgetHandler
-from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator
+from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
 import iotools
 
@@ -29,7 +29,7 @@ class ArgType(Enum):
     """An Enum of the various argument types an IOHandler understands."""
     String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
-    DateTime, Frame = DateTimeValidator, Frame
+    DateTime, Frame = DateTimeValidator, UnknownTypeValidator(Frame)
 
 
 class Config(miscutils.Config):
@@ -45,8 +45,8 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, config: Config = None, parent: IOHandler = None) -> None:
-        self.app_name, self.app_desc, self.name, self.run_mode, self.config, self.parent = app_name, app_desc, name, run_mode, Config() if config is None else config, parent
+    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.name, self.run_mode, self.parent, self.config = app_name, app_desc, name, run_mode, parent, Config()
 
         self.arguments: Dict[str, Argument] = {}
         self.subcommands: Dict[str, IOHandler] = {}
@@ -69,9 +69,19 @@ class IOHandler:
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         self.stack.pop()
 
+    def add_argument(self, argument: Argument) -> None:
+        """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
+        self._validate_arg_name(argument.name)
+        shortform = self._determine_shortform_alias(argument.name)
+
+        if shortform is not None:
+            argument.aliases = sorted([shortform, *argument.aliases], key=len)
+
+        self.arguments[argument.name] = argument
+
     def add_subcommand(self, name: str) -> IOHandler:
         """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
-        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, config=self.config, parent=self)
+        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, parent=self)
         self.subcommands[name] = subcommand
         return subcommand
 
@@ -114,17 +124,6 @@ class IOHandler:
 
         if outdir:
             self.outdir.clear()
-
-    def _add_argument(self, argument: Argument) -> None:
-        """Add a new Argument object to this IOHandler. Passes on its arguments to the Argument constructor."""
-
-        self._validate_arg_name(argument.name)
-        shortform = self._determine_shortform_alias(argument.name)
-
-        if shortform is not None:
-            argument.aliases = sorted([shortform, *argument.aliases], key=len)
-
-        self.arguments[argument.name] = argument
 
     def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
         self._latest.contents = namespace
@@ -193,7 +192,7 @@ class Argument:
         return [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
 
     def add(self) -> Argument:
-        IOHandler.stack[-1]._add_argument(argument=self)
+        IOHandler.stack[-1].add_argument(argument=self)
         return self
 
 

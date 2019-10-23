@@ -7,19 +7,19 @@ from typing import Any, TYPE_CHECKING
 from subtypes import Frame
 
 if TYPE_CHECKING:
-    from .synchronizer import Synchronizer
+    from .iohandler import IOHandler
 
 
 class ArgParser(argparse.ArgumentParser):
     """Subclass of argparse.ArgumentParser with its own helptext formatting."""
 
-    def __init__(self, *args: Any, sync: Synchronizer = None, **kwargs: Any) -> None:
-        self.sync = sync
+    def __init__(self, *args: Any, handler: IOHandler = None, **kwargs: Any) -> None:
+        self.handler = handler
         super().__init__(*args, **kwargs)
 
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
-        for arg in self.sync.root.handler.arguments.values():
+        for arg in self.handler.arguments.values():
             self.add_argument(*arg.commandline_aliases, default=arg.default, type=arg.argtype, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
@@ -29,7 +29,7 @@ class ArgParser(argparse.ArgumentParser):
 
     def format_help(self) -> str:
         target_cols = ["name", "commandline_aliases", "argtype", "default", "nullable", "info", "choices", "condition"]
-        frame = Frame([arg.__dict__ for arg in self.sync.root.handler.arguments.values()])
+        frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()])
         frame = frame.fillna_as_none()
         frame.argtype = frame.argtype.apply(lambda val: str(val))
         grouped_frames = dict(tuple(frame.groupby("optional")))

@@ -99,7 +99,9 @@ class ArgFrame(WidgetHandler):
         super().__init__()
 
         self.arg, self.manager = argument, manager
+
         self.widget, self.layout = QtWidgets.QGroupBox(), QtWidgets.QHBoxLayout()
+        self.widget.setLayout(self.layout)
 
         self.arg.widget = self
 
@@ -116,7 +118,6 @@ class ArgFrame(WidgetHandler):
     def make_widget(self) -> None:
         """Add the widget to the ArgFrame."""
         self.manager.parent = self
-        self.widget.setLayout(self.layout)
 
     def make_toggle(self) -> None:
         """Make the ArgFrame checkable."""

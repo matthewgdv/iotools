@@ -16,8 +16,6 @@ if TYPE_CHECKING:
 class Synchronizer:
     def __init__(self, root_handler: IOHandler) -> None:
         self.handler_mappings: Dict[IOHandler, Node] = {}
-        self.parser: ArgParser = None
-
         self.root = Node(root_handler, sync=self)
 
     def __repr__(self) -> str:
@@ -46,17 +44,16 @@ class Synchronizer:
         return gui.last_valid_namespace
 
     def run_from_commandline(self, args: List[str] = None) -> NameSpaceDict:
-        self.parser = ArgParser(prog=self.app_name, description=self.app_desc, handler=self)
-        self.parser.add_arguments_from_handler()
+        self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)
+        self.root.parser.add_arguments_from_handler()
+        self.root.add_subparsers_recursively()
 
-        self.add_subcommands_to_parser_recursively()
+        ns = vars(self.root.parser.parse_args() if args is None else self.root.parser.parse_args(args))
+        ns.pop("_")
 
-        return NameSpaceDict(vars(self.parser.parse_args() if args is None else self.parser.parse_args(args)))
-
-    def add_subcommands_to_parser_recursively(self) -> None:
-        if self.root.children:
-            for child in self.root.children.values():
-                child.add_subparsers_recursively()
+        clean_ns = NameSpaceDict()
+        self.root.parse_flat_namespace_into_nested(flat_namespace=ns, nested_namespace=clean_ns)
+        return clean_ns[self.root.handler.name]
 
     def create_widgets_recursively(self) -> None:
         self.root.create_widgets_recursively()
@@ -95,11 +92,12 @@ class Node:
         return f"{type(self).__name__}(name={repr(self.handler.name)}, parent={repr(self.parent)}, children=[{', '.join([repr(child) for child in self.children])}])"
 
     def add_subparsers_recursively(self) -> None:
-        subparsers = self.parser.add_subparsers()
-        for name, child in self.children.items():
-            child.parser = subparsers.add_parser(name, prog=child.handler.app_name, description=child.handler.app_desc, handler=child.handler)
-            child.parser.add_arguments_from_handler()
-            child.add_subparsers_recursively()
+        if self.children:
+            subparsers = self.parser.add_subparsers(dest=self.handler.name)
+            for name, child in self.children.items():
+                child.parser = subparsers.add_parser(name, prog=child.handler.app_name, description=child.handler.app_desc, handler=child.handler)
+                child.parser.add_arguments_from_handler()
+                child.add_subparsers_recursively()
 
     def create_widgets_recursively(self) -> None:
         for arg in self.handler.arguments.values():
@@ -131,7 +129,7 @@ class Node:
     def get_namespace_ascending(self) -> NameSpaceDict:
         outer_namespace = namespace = self.sync.root.get_namespace()
 
-        if self.sync.current_node is not self.sync.root:
+        if self is not self.sync.root:
             for node in self.get_topdown_hierarchy_ascending()[1:]:
                 namespace[node.handler.name] = node.get_namespace()
                 namespace = namespace[node.handler.name]
@@ -146,7 +144,7 @@ class Node:
     def set_values_from_namespace_ascending(self, namespace: NameSpaceDict) -> None:
         self.sync.root.set_values_from_namespace(namespace=namespace)
 
-        if self.sync.current_node is not self.sync.root:
+        if self is not self.sync.root:
             for node in self.get_topdown_hierarchy_ascending()[1:]:
                 namespace = namespace[node.handler.name]
                 node.set_values_from_namespace(namespace=namespace)
@@ -179,5 +177,17 @@ class Node:
 
     def set_widgets_from_namespace_recursively(self, namespace: NameSpaceDict) -> None:
         self.set_widgets_from_namespace(namespace=namespace)
-        for child in self.children.values():
-            self.set_widgets_from_namespace_recursively(namespace=namespace)
+        for name, child in self.children.items():
+            if name in namespace:
+                self.set_widgets_from_namespace_recursively(namespace=namespace[name])
+
+    def parse_flat_namespace_into_nested(self, flat_namespace: NameSpaceDict, nested_namespace: NameSpaceDict) -> None:
+        nested_namespace[self.handler.name] = {}
+        nested_namespace = nested_namespace[self.handler.name]
+
+        for name, argument in self.handler.arguments.items():
+            nested_namespace[name] = flat_namespace.pop(name)
+
+        if flat_namespace:
+            child_name = flat_namespace.pop(list(flat_namespace)[0])
+            self.children[child_name].parse_flat_namespace_into_nested(flat_namespace=flat_namespace, nested_namespace=nested_namespace)
