@@ -6,7 +6,7 @@ import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, Frame, Str
+from subtypes import Enum, AutoEnum, Frame, Str
 from miscutils import NameSpaceDict, lazy_property, is_running_in_ipython
 import miscutils
 
@@ -20,9 +20,9 @@ import iotools
 # TODO: implement dependent arguments
 
 
-class RunMode(Enum):
+class RunMode(AutoEnum):
     """An Enum of the various run modes an IOHandler accepts."""
-    SMART, COMMANDLINE, GUI, PROGRAMMATIC = "smart", "commandline", "gui", "programmatic"
+    SMART, COMMANDLINE, GUI, PROGRAMMATIC  # noqa
 
 
 class ArgType(Enum):
