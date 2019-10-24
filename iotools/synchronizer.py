@@ -49,7 +49,7 @@ class Synchronizer:
         self.root.add_subparsers_recursively()
 
         ns = vars(self.root.parser.parse_args() if args is None else self.root.parser.parse_args(args))
-        return ns["node"].get_namespace_ascending()
+        return ns.get("node", self.root).get_namespace_ascending()
 
     def create_widgets_recursively(self) -> None:
         self.root.create_widgets_recursively()
