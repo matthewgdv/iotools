@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import argparse
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 
 from subtypes import Frame
 
 if TYPE_CHECKING:
-    from .iohandler import IOHandler
+    from .iohandler import IOHandler, Argument
 
 
 class ArgParser(argparse.ArgumentParser):
@@ -20,7 +20,7 @@ class ArgParser(argparse.ArgumentParser):
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
         for arg in self.handler.arguments.values():
-            self.add_argument(*arg.commandline_aliases, default=arg.default, type=arg.argtype, choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
+            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.type_validator(arg), choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -45,3 +45,12 @@ class ArgParser(argparse.ArgumentParser):
 
     def _get_formatter(self) -> Any:
         return self.formatter_class(prog=self.prog, max_help_position=2000, width=2000)
+
+    @staticmethod
+    def type_validator(argument: Argument) -> Callable[Any, bool]:
+        def wrapper(candidate: Any) -> bool:
+            argument.value = candidate
+            return argument.value
+
+        wrapper.__name__ = argument.argtype.converter.__name__
+        return wrapper
