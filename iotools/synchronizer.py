@@ -36,6 +36,7 @@ class Synchronizer:
         if arguments:
             node.set_values_from_namespace_ascending(namespace=arguments)
 
+        node.validate_argument_dependencies_ascending()
         return node.get_namespace_ascending()
 
     def run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
@@ -48,8 +49,9 @@ class Synchronizer:
         self.root.parser.add_arguments_from_handler()
         self.root.add_subparsers_recursively()
 
-        ns = vars(self.root.parser.parse_args() if args is None else self.root.parser.parse_args(args))
-        return ns.get("node", self.root).get_namespace_ascending()
+        node = vars(self.root.parser.parse_args() if args is None else self.root.parser.parse_args(args)).get("node", self.root)
+        node.validate_argument_dependencies_ascending()
+        return node.get_namespace_ascending()
 
     def create_widgets_recursively(self) -> None:
         self.root.create_widgets_recursively()
@@ -178,16 +180,13 @@ class Node:
             if name in namespace:
                 self.set_widgets_from_namespace_recursively(namespace=namespace[name])
 
-    def parse_flat_namespace_into_nested(self, flat_namespace: NameSpaceDict, nested_namespace: NameSpaceDict) -> None:
-        nested_namespace[self.handler.name] = {}
-        nested_namespace = nested_namespace[self.handler.name]
+    def validate_argument_dependencies_ascending(self) -> None:
+        for argument in self.handler.arguments.values():
+            if argument.dependency is not None:
+                argument.dependency.validate()
 
-        for name, argument in self.handler.arguments.items():
-            nested_namespace[name] = flat_namespace.pop(name)
-
-        if flat_namespace:
-            child_name = flat_namespace.pop(list(flat_namespace)[0])
-            self.children[child_name].parse_flat_namespace_into_nested(flat_namespace=flat_namespace, nested_namespace=nested_namespace)
+        if self.parent is not None:
+            self.parent.validate_argument_dependencies_ascending()
 
     def set_values_from_widgets_catching_errors_as_warnings_ascending(self) -> List[str]:
         prefix, warnings = "", []

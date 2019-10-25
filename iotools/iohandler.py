@@ -158,7 +158,7 @@ class Argument:
         self.aliases = aliases
 
         self.dependency = None if dependency is None else (Dependency(dependency, argument=self) if isinstance(dependency, Argument) else dependency.bind(self))
-        self.optional = Maybe(optional).else_(True if self.default is not None or nullable else False)
+        self.optional = True if self.dependency is not None else Maybe(optional).else_(True if self.default is not None or nullable else False)
         self.nullable = nullable if self.dependency is None else True
 
         self.choices = [member.value for member in choices] if Enum.is_enum(choices) else choices
@@ -235,7 +235,7 @@ class Dependency:
 
     def validate(self) -> bool:
         if self:
-            if not self.argument.optional and self.argument.value is None:
+            if self.argument.value is None:
                 raise ValueError(f"""Must provide a value for argument '{self.argument}' if {self.mode.__name__} of: {", ".join(f"'{arg}'" for arg in self.arguments)} are truthy.""")
         else:
             if self.argument.value is not None:
