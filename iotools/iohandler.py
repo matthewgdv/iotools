@@ -221,7 +221,10 @@ class Dependency:
             DependencyMode.raise_if_not_a_member(mode)
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(argument={repr(self.argument.name)}, arguments=[{', '.join(repr(arg.name) for arg in self.arguments)}], mode={repr(self.mode.__name__)})"
+        return f"{type(self).__name__}(argument={self.argument}, arguments=[{', '.join(arg.name for arg in self.arguments)}], mode={self.mode.__name__})"
+
+    def __str__(self) -> str:
+        return f"{', '.join(arg.name for arg in self.arguments)} [{self.mode.__name__}]"
 
     def __bool__(self) -> bool:
         return self.mode([bool(argument.value) for argument in self.arguments])

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any, List, Callable
-from types import LambdaType
 import pathlib
 import enum
 import copy
@@ -40,7 +39,7 @@ class Condition:
         return self.condition(input_val)
 
     def extract_name_from_condition(self) -> str:
-        return Str(get_short_lambda_source(self.condition)).slice.after_first(r":").strip() if isinstance(self.condition, LambdaType) else self.condition.__name__
+        return Str(get_short_lambda_source(self.condition)).slice.after_first(r":").strip() if self.condition.__name__ == "<lambda>" else self.condition.__name__
 
 
 class TypedCollectionMeta(type):
