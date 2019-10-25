@@ -188,3 +188,21 @@ class Node:
         if flat_namespace:
             child_name = flat_namespace.pop(list(flat_namespace)[0])
             self.children[child_name].parse_flat_namespace_into_nested(flat_namespace=flat_namespace, nested_namespace=nested_namespace)
+
+    def set_values_from_widgets_catching_errors_as_warnings_ascending(self) -> List[str]:
+        prefix, warnings = "", []
+        for node in self.get_topdown_hierarchy_ascending():
+            prefix += f"{'.' if prefix else ''}{node.handler.name}"
+            for arg in node.handler.arguments.values():
+                try:
+                    arg.value = arg.widget.state
+                except Exception as ex:
+                    warnings.append(f"WARNING [{prefix}] ({arg}) - {ex}")
+
+                if arg.dependency is not None:
+                    try:
+                        arg.dependency.validate()
+                    except Exception as ex:
+                        warnings.append(f"WARNING [{prefix}] ({arg}) - {ex}")
+
+        return warnings

@@ -171,14 +171,18 @@ class Label(WidgetHandler):
 class Button(WidgetHandler):
     """A manager class for a simple Button widget which can trigger a callback when pushed."""
 
-    def __init__(self, text: str = None, command: Callable = None) -> None:
+    def __init__(self, text: str = None, command: Callable = None, state: bool = None) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QPushButton(text or "")
-        self.get_text = self.get_state = self.widget.text
-        self.set_text = self.set_state = self.widget.setText
+        self.get_text, self.set_text = self.widget.text, self.widget.setText
+        self.get_state, self.set_state = self.widget.isChecked, self.widget.setChecked
 
-        self.widget.clicked.connect(command)
+        if command is None:
+            self.widget.setCheckable(True)
+            self.widget.state = Maybe(state).else_(False)
+        else:
+            self.widget.clicked.connect(command)
 
 
 class Checkbox(WidgetHandler):

@@ -10,7 +10,7 @@ from pathmagic import File, Dir
 from miscutils import issubclass_safe, NameSpaceDict
 
 from .gui import FormGui
-from .widget import WidgetHandler, Button, Label, DropDown, Checkbox, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
+from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
@@ -70,14 +70,7 @@ class ArgsGui(FormGui):
     def set_arguments_from_widgets(self) -> bool:
         """Set the value of the handler's arguments with the state of their widgets, producing warnings for any exceptions that occur."""
 
-        prefix, warnings = "", []
-        for node in self.sync.current_node.get_topdown_hierarchy_ascending():
-            prefix += f"{'.' if prefix else ''}{node.handler.name}"
-            for arg in node.handler.arguments.values():
-                try:
-                    arg.value = arg.widget.state
-                except Exception as ex:
-                    warnings.append(f"WARNING [{prefix}] ({arg}) - {ex}")
+        warnings = self.sync.current_node.set_values_from_widgets_catching_errors_as_warnings_ascending()
 
         if warnings:
             print("\n".join(warnings), end="\n\n")
@@ -153,7 +146,7 @@ class ArgFrame(WidgetHandler):
         elif issubclass_safe(dtype, dict) and arg.argtype._default_generic_type == (str, bool):
             return ArgFrame(argument=arg, manager=CheckBar(choices=arg.default))
         elif issubclass_safe(dtype, bool):
-            return ArgFrame(argument=arg, manager=Checkbox(text=arg.name, state=arg.default))
+            return ArgFrame(argument=arg, manager=Button(text=arg.name, state=arg.default))
         elif issubclass_safe(dtype, int) or issubclass_safe(dtype, float):
             return ArgFrame(argument=arg, manager=Entry(state=arg.default))
         elif issubclass_safe(dtype, File):

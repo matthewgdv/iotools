@@ -2,16 +2,18 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any, List, Callable
+from types import LambdaType
 import pathlib
 import enum
 import copy
+import decimal
 
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Enum
+from subtypes import DateTime, Enum, Str
 import pathmagic
-from miscutils import issubclass_safe
+from miscutils import issubclass_safe, get_short_lambda_source
 
 
 class TypeConversionError(typepy.TypeConversionError):
@@ -25,7 +27,8 @@ class Condition:
     """A class representing a condition which must be met in order for a value to pass validation."""
 
     def __init__(self, condition: Callable[..., bool], name: str = None) -> None:
-        self.condition, self.name = condition, name
+        self.condition = condition
+        self.name = name if name is not None else self.extract_name_from_condition()
 
     def __str__(self) -> str:
         return Maybe(self.name).else_(self.condition.__name__)
@@ -35,6 +38,9 @@ class Condition:
 
     def __call__(self, input_val: Any) -> bool:
         return self.condition(input_val)
+
+    def extract_name_from_condition(self) -> str:
+        return Str(get_short_lambda_source(self.condition)).slice.after_first(r":").strip() if isinstance(self.condition, LambdaType) else self.condition.__name__
 
 
 class TypedCollectionMeta(type):
@@ -87,7 +93,7 @@ class Validator:
 
     def is_valid(self, value: Any) -> bool:
         if value is None:
-            return self.nullable
+            return bool(self.nullable)
 
         if not self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type():
             return False
@@ -160,6 +166,7 @@ class UnknownTypeValidator(Validator):
 class BoolValidator(Validator):
     """A validator that can handle booleans."""
     dtype, converter = bool, typepy.Bool
+    converter.__name__ = "Boolean"
 
 
 class StringValidator(Validator):
@@ -188,17 +195,34 @@ class IntegerValidator(Validator):
         return self
 
 
-class FloatValidator(Validator):
-    """A validator that can handle floats."""
+class RealNumberValidator(Validator):
+    """A validator that can handle real numbers."""
     dtype, converter = float, typepy.RealNumber
 
-    def max_value(self, value: float) -> FloatValidator:
+    def max_value(self, value: float) -> RealNumberValidator:
         self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
         return self
 
-    def min_value(self, value: float) -> FloatValidator:
+    def min_value(self, value: float) -> RealNumberValidator:
         self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
         return self
+
+
+class FloatValidator(RealNumberValidator):
+    """A validator that can handle floating points numbers."""
+    class Float(typepy.RealNumber):
+        def convert(self) -> float:
+            return float(super().convert())
+
+    dtype, converter = float, Float
+
+
+class DecimalValidator(RealNumberValidator):
+    """A validator that can handle decimal numbers."""
+    class Decimal(typepy.RealNumber):
+        pass
+
+    dtype, converter = decimal.Decimal, typepy.RealNumber
 
 
 class ListValidator(Validator, metaclass=TypedCollectionMeta):

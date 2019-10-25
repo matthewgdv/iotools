@@ -1,22 +1,20 @@
 from __future__ import annotations
 
-import inspect
 import string
 import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, AutoEnum, Frame, Str
+from subtypes import Enum, AutoEnum, Frame
 from miscutils import NameSpaceDict, lazy_property, is_running_in_ipython
 import miscutils
 
 from .widget import WidgetHandler
-from .validator import Validate, StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
 import iotools
 
 # TODO: implement argument profiles
-# TODO: implement mutually exclusive argument gruops
 # TODO: implement dependent arguments
 
 
@@ -29,7 +27,7 @@ class ArgType(Enum):
     """An Enum of the various argument types an IOHandler understands."""
     String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
-    DateTime, Frame = DateTimeValidator, UnknownTypeValidator(Frame)
+    DateTime, Decimal, Frame = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
 class Config(miscutils.Config):
@@ -150,19 +148,29 @@ class IOHandler:
 class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
-    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None,
-                 choices: List[Any] = None, condition: Callable = None, magnitude: int = None, info: str = None, aliases: List[str] = None) -> None:
-        self.name, self.default, self.nullable, self.magnitude, self.info, self._aliases, self._value = name, default, nullable, magnitude, info, None, default
-        self.aliases = aliases
-        self.widget: WidgetHandler = None
+    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None, dependency: Union[Argument, Dependency] = None,
+                 choices: Union[Enum, List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None) -> None:
+        self.name, self.default, self.magnitude, self.info, self._value = name, default, magnitude, info, default
 
-        self.choices = choices.values if Enum.is_enum(choices) else (list(choices) if choices is not None else None)
-        self.optional = Maybe(optional).else_(True if self.default is not None or self.nullable else False)
-        self.condition = Condition(condition) if condition is not None else None
+        self.widget: WidgetHandler = None
+        self._aliases: List[str] = None
+
+        self.aliases = aliases
+
+        self.dependency = None if dependency is None else (Dependency(dependency, argument=self) if isinstance(dependency, Argument) else dependency.bind(self))
+        self.optional = Maybe(optional).else_(True if self.default is not None or nullable else False)
+        self.nullable = nullable if self.dependency is None else True
+
+        self.choices = [member.value for member in choices] if Enum.is_enum(choices) else choices
+        self.conditions = [Condition(condition, name=name) for name, condition in conditions.items()] if isinstance(conditions, dict) else (
+            [Condition(condition) for condition in conditions] if isinstance(conditions, list) else (
+                [Condition(conditions)] if conditions is not None else None
+            )
+        )
 
         self.argtype = Validate.Type(argtype, nullable=self.nullable, choices=self.choices)
-        if self.condition:
-            self.argtype.conditions = [self.condition]
+        if self.conditions:
+            self.argtype.conditions = Maybe(self.conditions).else_([])
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -196,19 +204,36 @@ class Argument:
         return self
 
 
-class Condition:
-    """Class representing a condition which an argument value must fulfill in order to be valid."""
+class DependencyMode(AutoEnum):
+    ALL, ANY  # noqa
 
-    def __init__(self, condition: Callable[..., bool]) -> None:
-        self.condition = condition
 
-    def __call__(self, input_val: Any) -> bool:
-        return self.condition(input_val)
+class Dependency:
+    def __init__(self, *args: Argument, argument: Argument = None, mode: str = DependencyMode.ANY) -> None:
+        self.argument = argument
+        self.arguments = list(args)
+
+        if mode == DependencyMode.ANY:
+            self.mode = any
+        elif mode == DependencyMode.ALL:
+            self.mode = all
+        else:
+            DependencyMode.raise_if_not_a_member(mode)
 
     def __repr__(self) -> str:
-        if self.condition is None:
-            return ""
-        elif "<lambda>" in repr(self.condition):
-            return str(Str(inspect.getsource(self.condition)).re.search(r"condition\s*=\s*lambda.*:\s*(([^([,]*(\(.*?\)|\[.*?\])+)*[^([,]*?)[,)]").group(1))
+        return f"{type(self).__name__}(argument={repr(self.argument.name)}, arguments=[{', '.join(repr(arg.name) for arg in self.arguments)}], mode={repr(self.mode.__name__)})"
+
+    def __bool__(self) -> bool:
+        return self.mode([bool(argument.value) for argument in self.arguments])
+
+    def bind(self, argument: Argument) -> Dependency:
+        self.argument = argument
+        return self
+
+    def validate(self) -> bool:
+        if self:
+            if not self.argument.optional and self.argument.value is None:
+                raise ValueError(f"""Must provide a value for argument '{self.argument}' if {self.mode.__name__} of: {", ".join(f"'{arg}'" for arg in self.arguments)} are truthy.""")
         else:
-            return self.condition.__name__
+            if self.argument.value is not None:
+                raise ValueError(f"""May not provide a value for argument '{self.argument}' unless {self.mode.__name__} of: {", ".join(f"'{arg}'" for arg in self.arguments)} are truthy.""")
