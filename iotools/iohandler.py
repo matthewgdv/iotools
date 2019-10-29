@@ -249,7 +249,7 @@ class Nullability:
         self.truth, self.argument = truth, argument
 
     def __repr__(self) -> str:
-        return f"{type(self).__name__}(truth={self.bool}, bool={bool(self)})"
+        return f"{type(self).__name__}(truth={self.truth}, bool={bool(self)})"
 
     def __str__(self) -> str:
         return str(self.truth)
