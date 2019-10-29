@@ -6,6 +6,7 @@ from typing import Any, TYPE_CHECKING
 import pandas as pd
 from PyQt5 import QtWidgets
 
+from maybe import Maybe
 from pathmagic import File, Dir
 from miscutils import issubclass_safe, NameSpaceDict
 
@@ -146,7 +147,7 @@ class ArgFrame(WidgetHandler):
         elif issubclass_safe(dtype, dict) and arg.argtype._default_generic_type == (str, bool):
             return ArgFrame(argument=arg, manager=CheckBar(choices=arg.default))
         elif issubclass_safe(dtype, bool):
-            return ArgFrame(argument=arg, manager=Button(state=arg.default))
+            return ArgFrame(argument=arg, manager=Button(state=Maybe(arg.default).else_(False)))
         elif issubclass_safe(dtype, int) or issubclass_safe(dtype, float):
             return ArgFrame(argument=arg, manager=Entry(state=arg.default))
         elif issubclass_safe(dtype, File):

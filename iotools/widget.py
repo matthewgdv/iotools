@@ -178,10 +178,11 @@ class Button(WidgetHandler):
         self.get_text, self.set_text = self.widget.text, self.widget.setText
         self.get_state, self.set_state = self.widget.isChecked, self.widget.setChecked
 
-        if command is None:
+        if state is not None:
             self.widget.setCheckable(True)
-            self.widget.state = Maybe(state).else_(False)
-        else:
+            self.state = state
+
+        if command is not None:
             self.widget.clicked.connect(command)
 
 
