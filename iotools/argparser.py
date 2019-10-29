@@ -20,7 +20,7 @@ class ArgParser(argparse.ArgumentParser):
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
         for arg in self.handler.arguments.values():
-            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.type_validator(arg), choices=arg.choices, required=not arg.optional, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
+            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.type_validator(arg), choices=arg.choices, required=arg.required, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -37,10 +37,10 @@ class ArgParser(argparse.ArgumentParser):
         frame.conditions = frame.conditions.apply(lambda val: val if val is None else ", ".join([condition.name for condition in val]))
         frame.dependency = frame.dependency.apply(lambda val: val if val is None else str(val))
 
-        grouped_frames = dict(tuple(frame.groupby("optional")))
+        grouped_frames = dict(tuple(frame.groupby(frame.required.name)))
 
         detail = ""
-        for header, condition in [("Mandatory Arguments:", False), ("Optional Arguments:", True)]:
+        for header, condition in [("Required Arguments:", True), ("Optional Arguments:", False)]:
             if condition in grouped_frames:
                 detail += f"{header}\n{Frame(grouped_frames[condition][target_cols]).to_ascii()}\n\n"
 

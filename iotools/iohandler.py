@@ -148,7 +148,7 @@ class IOHandler:
 class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
-    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, optional: bool = None, dependency: Union[Argument, Dependency] = None,
+    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, required: bool = None, dependency: Union[Argument, Dependency] = None,
                  choices: Union[Enum, List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value = name, default, magnitude, info, default
 
@@ -158,8 +158,8 @@ class Argument:
         self.aliases = aliases
 
         self.dependency = None if dependency is None else (Dependency(dependency, argument=self) if isinstance(dependency, Argument) else dependency.bind(self))
-        self.optional = True if self.dependency is not None else Maybe(optional).else_(True if self.default is not None or nullable else False)
-        self.nullable = nullable if self.dependency is None else True
+        self.nullable = Nullability(truth=nullable, argument=self)
+        self.required = Maybe(required).else_(True if self.default is None and not self.nullable else False)
 
         self.choices = [member.value for member in choices] if Enum.is_enum(choices) else choices
         self.conditions = [Condition(condition, name=name) for name, condition in conditions.items()] if isinstance(conditions, dict) else (
@@ -240,3 +240,19 @@ class Dependency:
         else:
             if self.argument.value is not None:
                 raise ValueError(f"""May not provide a value for argument '{self.argument}' unless {self.mode.__name__} of: {", ".join(f"'{arg}'" for arg in self.arguments)} are truthy.""")
+
+        return True
+
+
+class Nullability:
+    def __init__(self, truth: bool, argument: Argument) -> None:
+        self.truth, self.argument = truth, argument
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}(truth={self.bool}, bool={bool(self)})"
+
+    def __str__(self) -> str:
+        return str(self.truth)
+
+    def __bool__(self) -> bool:
+        return self.truth if self.argument.dependency is None else True
