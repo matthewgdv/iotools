@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Dict, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 
 from miscutils import NameSpaceDict
 from miscutils.serializer import LostObject
@@ -31,27 +31,27 @@ class Synchronizer:
     def current_node(self) -> Node:
         return self.root.get_active_child()
 
-    def run_programatically(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
-        node = self.handler_mappings[subcommand] if subcommand is not None else self.root
-        if arguments:
-            node.set_values_from_namespace_ascending(namespace=arguments)
+    def run_programatically(self, values: NameSpaceDict, handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
+        node = self.handler_mappings[handler] if handler is not None else self.root
+        if values:
+            node.set_values_from_namespace_ascending(namespace=values)
 
         node.validate_argument_dependencies_ascending()
-        return node.get_namespace_ascending()
+        return node.get_namespace_ascending(), node.handler
 
-    def run_as_gui(self, arguments: Dict[str, Any], subcommand: IOHandler = None) -> NameSpaceDict:
-        gui = ArgsGui(sync=self, arguments=arguments, subcommand=subcommand)
+    def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
+        gui = ArgsGui(sync=self, values=values, handler=handler)
         gui.start_loop()
-        return gui.last_valid_namespace
+        return gui.output
 
-    def run_from_commandline(self, args: List[str] = None) -> NameSpaceDict:
+    def run_from_commandline(self, args: List[str] = None, values: NameSpaceDict = None, handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
         self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)
         self.root.parser.add_arguments_from_handler()
         self.root.add_subparsers_recursively()
 
         node = vars(self.root.parser.parse_args() if args is None else self.root.parser.parse_args(args)).get("node", self.root)
         node.validate_argument_dependencies_ascending()
-        return node.get_namespace_ascending()
+        return node.get_namespace_ascending(), node.handler
 
     def create_widgets_recursively(self) -> None:
         self.root.create_widgets_recursively()

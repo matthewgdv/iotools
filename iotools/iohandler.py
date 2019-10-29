@@ -15,7 +15,8 @@ from .synchronizer import Synchronizer
 import iotools
 
 # TODO: implement argument profiles
-# TODO: implement dependent arguments
+# TODO: improve dependent arguments
+# TODO: improve smart runmode logic
 
 
 class RunMode(AutoEnum):
@@ -43,8 +44,9 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", name: str = "main", run_mode: str = RunMode.SMART, parent: IOHandler = None) -> None:
-        self.app_name, self.app_desc, self.name, self.run_mode, self.parent, self.config = app_name, app_desc, name, run_mode, parent, Config()
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, _name: str = None, _parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.callback, self.name, self.parent = app_name, app_desc, run_mode, callback, Maybe(_name).else_("main"), _parent
+        self.config = Config() if self.parent is None else self.parent.config
 
         self.arguments: Dict[str, Argument] = {}
         self.subcommands: Dict[str, IOHandler] = {}
@@ -53,9 +55,9 @@ class IOHandler:
         self._remaining_letters = set(string.ascii_lowercase)
         self._remaining_letters.discard("h")
 
-        self._dir = (self.config.appdata.new_dir(self.app_name) if self.parent is None else self.parent._dir).new_dir(self.name)
-        workfolder = self._dir.new_dir("__io__")
-        self.outfile, self.outdir, self._latest = workfolder.new_file("output", "txt"), workfolder.new_dir("output"), workfolder.new_file("latest", "pkl")
+        self._root = (self.config.appdata.new_dir(self.app_name) if self.parent is None else self.parent._root).new_dir(self.name)
+        self._dir = self._root.new_dir("__io__")
+        self.outfile, self.outdir, self._latest = self._dir.new_file("output", "txt"), self._dir.new_dir("output"), self._dir.new_file("latest", "pkl")
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -79,34 +81,17 @@ class IOHandler:
 
     def add_subcommand(self, name: str) -> IOHandler:
         """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
-        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, name=name, run_mode=self.run_mode, parent=self)
+        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, run_mode=self.run_mode, _name=name, _parent=self)
         self.subcommands[name] = subcommand
         return subcommand
 
-    def process(self, arguments: Dict[str, Any] = None, subcommand: str = None) -> NameSpaceDict:
+    def process(self, values: dict = None, handler: IOHandler = None) -> NameSpaceDict:
         """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
-
-        if self.run_mode == RunMode.COMMANDLINE:
-            namespace = self.sync.run_from_commandline()
-        elif self.run_mode == RunMode.GUI:
-            namespace = self.sync.run_as_gui(arguments=arguments, subcommand=subcommand)
-        elif self.run_mode == RunMode.PROGRAMMATIC:
-            namespace = self.sync.run_programatically(arguments=arguments, subcommand=subcommand)
-        elif self.run_mode == RunMode.SMART:
-            if subcommand or arguments:
-                namespace = self.sync.run_programatically(arguments=arguments, subcommand=subcommand)
-            else:
-                if not sys.argv[1:] or is_running_in_ipython():
-                    namespace = self.sync.run_as_gui(arguments=arguments, subcommand=subcommand)
-                else:
-                    namespace = self.sync.run_from_commandline()
-        else:
-            RunMode.raise_if_not_a_member(self.run_mode)
+        namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
         self._save_latest_input_config(namespace=namespace)
-
-        return namespace
+        return namespace if handler.callback is None else handler.callback(namespace)
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Show the output file and/or folder belonging to this IOHandler."""
@@ -122,6 +107,24 @@ class IOHandler:
 
         if outdir:
             self.outdir.clear()
+
+    def _choose_handler_method(self) -> Callable:
+        if self.run_mode == RunMode.COMMANDLINE:
+            return self.sync.run_from_commandline
+        elif self.run_mode == RunMode.GUI:
+            return self.sync.run_as_gui
+        elif self.run_mode == RunMode.PROGRAMMATIC:
+            return self.sync.run_programatically
+        elif self.run_mode == RunMode.SMART:
+            if is_running_in_ipython():
+                return self.sync.run_programatically
+            else:
+                if not sys.argv[1:]:
+                    return self.sync.run_as_gui
+                else:
+                    return self.sync.run_from_commandline
+        else:
+            RunMode.raise_if_not_a_member(self.run_mode)
 
     def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
         self._latest.contents = namespace

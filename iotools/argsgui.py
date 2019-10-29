@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, TYPE_CHECKING
+from typing import Any, Tuple, TYPE_CHECKING
 
 import pandas as pd
 from PyQt5 import QtWidgets
@@ -21,13 +21,13 @@ if TYPE_CHECKING:
 class ArgsGui(FormGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
-    def __init__(self, sync: Synchronizer, arguments: dict = None, subcommand: str = None) -> None:
+    def __init__(self, sync: Synchronizer, values: dict = None, handler: str = None) -> None:
         super().__init__(name=sync.root.handler.app_name)
         self.sync = sync
-        self.last_valid_namespace: NameSpaceDict = None
+        self.output: Tuple[NameSpaceDict, IOHandler] = None
 
         self.populate_title_segment()
-        self.populate_main_segment(arguments, subcommand)
+        self.populate_main_segment(values=values, handler=handler)
         self.populate_button_segment()
 
     def populate_title_segment(self) -> None:
@@ -35,16 +35,16 @@ class ArgsGui(FormGui):
         with self.title:
             Label(text=self.sync.root.handler.app_desc).stack()
 
-    def populate_main_segment(self, arguments: dict, subcommand: IOHandler) -> None:
+    def populate_main_segment(self, values: dict, handler: IOHandler) -> None:
         """Add tabs to the main segment and then widget(s) to each of those tabs."""
         with self.main:
             self.sync.create_widgets_recursively()
 
-        if subcommand is not None:
-            self.sync.set_active_tabs_from_handler_ascending(handler=subcommand)
+        if handler is not None:
+            self.sync.set_active_tabs_from_handler_ascending(handler=handler)
 
-        if arguments is not None:
-            self.sync.set_widgets_from_namespace_recursively(namespace=arguments)
+        if values is not None:
+            self.sync.set_widgets_from_namespace_recursively(namespace=values)
 
     def populate_button_segment(self) -> None:
         """Add widget(s) to the button segment."""
@@ -79,10 +79,11 @@ class ArgsGui(FormGui):
             self.validation_label.widget.setToolTip("\n".join(warnings))
             return False
         else:
-            self.last_valid_namespace = self.sync.current_node.get_namespace_ascending()
-            print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{self.last_valid_namespace}\n")
+            node = self.sync.current_node
+            self.output = node.get_namespace_ascending(), node.handler
+            print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{self.output[0]}\n")
             self.validation_label.state = "Validation Passed!"
-            self.validation_label.widget.setToolTip(str(self.last_valid_namespace))
+            self.validation_label.widget.setToolTip(str(self.output[0]))
             return True
 
 
