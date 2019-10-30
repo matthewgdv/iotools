@@ -266,6 +266,15 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
             return [validator(item) for item in super().convert(value)]
 
 
+class SetValidator(ListValidator):
+    """A validator that can handle floating points numbers."""
+    class Set(typepy.List):
+        def convert(self) -> float:
+            return float(super().convert())
+
+    dtype, converter, _default_generic_type = set, Set, None
+
+
 class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
     """A validator that can handle dicts. Item access can be used to create a new validator class that will also validate the type of the dict's keys and values."""
     dtype, converter, _default_generic_type = dict, typepy.Dictionary, None
