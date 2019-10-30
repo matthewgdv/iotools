@@ -23,13 +23,14 @@ setup(
     ],
     packages=find_packages(exclude=["tests*"]),
     install_requires=[
+        "infi.systray",
         "PyQt5",
         "maybe-else",
         "pandas",
         "pathmagic",
         "pymiscutils",
         "pysubtypes",
-        "typepy"
+        "typepy",
      ],
     author="Matt GdV",
     author_email="matthewgdv@gmail.com"

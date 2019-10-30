@@ -7,8 +7,9 @@ import pandas as pd
 from PyQt5 import QtWidgets
 
 from maybe import Maybe
+from subtypes import NameSpaceDict
 from pathmagic import File, Dir
-from miscutils import issubclass_safe, NameSpaceDict
+from miscutils import issubclass_safe
 
 from .gui import FormGui
 from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect

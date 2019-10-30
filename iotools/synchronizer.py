@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 
-from miscutils import NameSpaceDict
-from miscutils.serializer import LostObject
+from subtypes import NameSpaceDict
+from iotools.serializer import LostObject
 
 from .widget import TabPage
 from .argsgui import ArgsGui, ArgFrame

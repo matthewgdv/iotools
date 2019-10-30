@@ -5,9 +5,8 @@ import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, AutoEnum, Frame
-from miscutils import NameSpaceDict, lazy_property, is_running_in_ipython
-import miscutils
+from subtypes import Enum, AutoEnum, Frame, NameSpaceDict
+from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
 from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
@@ -31,7 +30,7 @@ class ArgType(Enum):
     DateTime, Decimal, Frame = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
-class Config(miscutils.Config):
+class Config(iotools.Config):
     """A config class granting access to an os-specific appdata directory for use by this application."""
     app_name = iotools.__name__
 
