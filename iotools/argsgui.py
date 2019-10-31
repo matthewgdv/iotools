@@ -27,13 +27,13 @@ class ArgsGui(FormGui):
         self.sync = sync
         self.output: Tuple[NameSpaceDict, IOHandler] = None
 
-        self.populate_title_segment()
+        self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)
-        self.populate_button_segment()
+        self.populate_bottom_segment()
 
-    def populate_title_segment(self) -> None:
+    def populate_top_segment(self) -> None:
         """Add widget(s) to the title segment."""
-        with self.title:
+        with self.top:
             Label(text=self.sync.root.handler.app_desc).stack()
 
     def populate_main_segment(self, values: dict, handler: IOHandler) -> None:
@@ -47,9 +47,9 @@ class ArgsGui(FormGui):
         if values is not None:
             self.sync.set_widgets_from_namespace_recursively(namespace=values)
 
-    def populate_button_segment(self) -> None:
+    def populate_bottom_segment(self) -> None:
         """Add widget(s) to the button segment."""
-        with self.buttons:
+        with self.bottom:
             Button(text='Latest Config', command=self.sync.set_widgets_from_last_config_at_current_node).stack()
             Button(text='Default Config', command=self.sync.set_widgets_to_defaults_from_current_node_ascending).stack()
 

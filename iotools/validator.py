@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, List, Callable
+from typing import Any, Union, List, Callable, Iterable
 import pathlib
 import enum
 import copy
@@ -56,12 +56,12 @@ class Validator:
     dtype = None
     converter = None
 
-    def __init__(self, *, nullable: bool = False, strict: bool = False, choices: enum.Enum = None) -> None:
-        self.nullable = self.strict = None  # type: bool
-        self.choices: list = None
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None) -> None:
+        self.nullable: bool = None
+        self.choices: set = None
         self.conditions: List[Condition] = []
 
-        self.set_nullable(nullable).set_strict(strict)
+        self.set_nullable(nullable)
         if choices is not None:
             self.set_choices(choices)
 
@@ -78,11 +78,7 @@ class Validator:
         self.nullable = nullable
         return self
 
-    def set_strict(self, strict: bool = True) -> Validator:
-        self.strict = strict
-        return self
-
-    def set_choices(self, enumeration: enum.Enum) -> Validator:
+    def set_choices(self, enumeration: Union[enum.Enum, Iterable]) -> Validator:
         self.choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
         return self
 
@@ -94,7 +90,7 @@ class Validator:
         if value is None:
             return bool(self.nullable)
 
-        if not self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type():
+        if not self.converter(value, strict_level=typepy.StrictLevel.MIN).is_type():
             return False
 
         try:
@@ -112,7 +108,7 @@ class Validator:
                 raise TypeConversionError(self, value)
         else:
             try:
-                ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).convert()
+                ret = self.converter(value, strict_level=typepy.StrictLevel.MIN).convert()
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
@@ -401,18 +397,18 @@ class Validate(Enum):
     @classmethod
     def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
         """Return a validator appropriate to the dtype passed."""
-        dtypes = {member.value.dtype: member.value for member in cls}
-        dtypes.update({None: AnythingValidator})
-        validator = dtypes.get(dtype)
-
-        if validator is not None:
-            return validator(**kwargs)
+        if issubclass_safe(dtype, Validator):
+            return dtype(**kwargs)
         else:
-            if issubclass_safe(dtype, Validator):
-                return dtype(**kwargs)
+            dtypes = {member.value.dtype: member.value for member in cls}
+            dtypes.update({None: AnythingValidator})
+            validator = dtypes.get(dtype)
+
+            if validator is not None:
+                return validator(**kwargs)
             else:
-                for key, val in dtypes.items():
-                    if issubclass_safe(dtype, key):
-                        return val(**kwargs)
+                for validator_dtype, validator in dtypes.items():
+                    if issubclass_safe(dtype, validator_dtype):
+                        return validator(**kwargs)
                 else:
                     return UnknownTypeValidator(constructor=dtype, **kwargs)

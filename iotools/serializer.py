@@ -16,6 +16,9 @@ from subtypes import Singleton
 from pathmagic import Dir, PathLike
 
 
+# TODO: save the encryption key for Secrets in Config.appdata
+
+
 class Lost(Singleton):
     """A class representing a lost object that could not be serialized. Because this object was nested within another lost object, even its class name has been lost."""
 

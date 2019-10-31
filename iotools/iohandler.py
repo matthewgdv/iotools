@@ -9,7 +9,7 @@ from subtypes import Enum, AutoEnum, Frame, NameSpaceDict
 from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
-from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
 import iotools
 
@@ -25,9 +25,9 @@ class RunMode(AutoEnum):
 
 class ArgType(Enum):
     """An Enum of the various argument types an IOHandler understands."""
-    String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
-    Path, File, Dir = PathValidator, FileValidator, DirValidator
-    DateTime, Decimal, Frame = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
+    STRING, INTEGER, FLOAT, BOOLEAN, LIST, DICT, SET = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator
+    PATH, FILE, DIR = PathValidator, FileValidator, DirValidator
+    DATETIME, DECIMAL, FRAME = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
 class Config(iotools.Config):
