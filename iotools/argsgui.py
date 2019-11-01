@@ -7,11 +7,11 @@ import pandas as pd
 from PyQt5 import QtWidgets
 
 from maybe import Maybe
-from subtypes import NameSpaceDict
+from subtypes import Dict_
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
-from .gui import FormGui
+from .gui import ThreePartGui
 from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
 
 if TYPE_CHECKING:
@@ -19,21 +19,21 @@ if TYPE_CHECKING:
     from .synchronizer import Synchronizer
 
 
-class ArgsGui(FormGui):
+class ArgsGui(ThreePartGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
     def __init__(self, sync: Synchronizer, values: dict = None, handler: str = None) -> None:
         super().__init__(name=sync.root.handler.app_name)
         self.sync = sync
-        self.output: Tuple[NameSpaceDict, IOHandler] = None
+        self.output: Tuple[Dict_, IOHandler] = None
 
-        self.populate_title_segment()
+        self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)
-        self.populate_button_segment()
+        self.populate_bottom_segment()
 
-    def populate_title_segment(self) -> None:
+    def populate_top_segment(self) -> None:
         """Add widget(s) to the title segment."""
-        with self.title:
+        with self.top:
             Label(text=self.sync.root.handler.app_desc).stack()
 
     def populate_main_segment(self, values: dict, handler: IOHandler) -> None:
@@ -47,15 +47,15 @@ class ArgsGui(FormGui):
         if values is not None:
             self.sync.set_widgets_from_namespace_recursively(namespace=values)
 
-    def populate_button_segment(self) -> None:
+    def populate_bottom_segment(self) -> None:
         """Add widget(s) to the button segment."""
-        with self.buttons:
+        with self.bottom:
             Button(text='Latest Config', command=self.sync.set_widgets_from_last_config_at_current_node).stack()
             Button(text='Default Config', command=self.sync.set_widgets_to_defaults_from_current_node_ascending).stack()
 
-            self.buttons.layout.addStretch()
+            self.bottom.layout.addStretch()
             self.validation_label = Label(text="Not yet validated.").stack()
-            self.buttons.layout.addStretch()
+            self.bottom.layout.addStretch()
 
             Button(text='Validate', command=self.set_arguments_from_widgets).stack()
             Button(text='Proceed', command=self.try_to_proceed).stack()

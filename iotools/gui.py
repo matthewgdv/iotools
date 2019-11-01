@@ -57,13 +57,13 @@ class Gui(QtWidgets.QWidget, WidgetHandler):
         self.kill()
 
 
-class FormGui(Gui):
-    """Gui with 3 separate segments, a title segment, a main segment, and a button segment."""
+class ThreePartGui(Gui):
+    """Gui with 3 separate segments, a top segment, a main segment, and a bottom segment."""
 
     def __init__(self, name: str = None):
         super().__init__(name=name)
         with self:
-            self.title, self.main, self.buttons = HorizontalFrame().stack(), VerticalFrame().stack(), HorizontalFrame().stack()
+            self.top, self.main, self.bottom = HorizontalFrame().stack(), VerticalFrame().stack(), HorizontalFrame().stack()
 
     def start_loop(self):
         self.main.make_scrollable()
@@ -77,8 +77,6 @@ class HtmlGui(Gui):
         super().__init__(name=name)
         with self:
             self.html, self.button = HtmlDisplay(text=text).stack(), Button(text="continue", command=self.end_loop).stack()
-
-        self.start_loop()
 
 
 class ProgressBarGui(Gui):

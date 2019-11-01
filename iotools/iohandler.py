@@ -5,13 +5,13 @@ import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, AutoEnum, Frame, NameSpaceDict
+from subtypes import Enum, AutoEnum, Frame, Dict_
 from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
-from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from .validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
-import iotools
+from .config import ThisConfig as Config
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments
@@ -25,14 +25,9 @@ class RunMode(AutoEnum):
 
 class ArgType(Enum):
     """An Enum of the various argument types an IOHandler understands."""
-    String, Integer, Float, Boolean, List, Dict = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator
-    Path, File, Dir = PathValidator, FileValidator, DirValidator
-    DateTime, Decimal, Frame = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
-
-
-class Config(iotools.Config):
-    """A config class granting access to an os-specific appdata directory for use by this application."""
-    app_name = iotools.__name__
+    STRING, INTEGER, FLOAT, BOOLEAN, LIST, DICT, SET = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator
+    PATH, FILE, DIR = PathValidator, FileValidator, DirValidator
+    DATETIME, DECIMAL, FRAME = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
 class IOHandler:
@@ -43,8 +38,8 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, _name: str = None, _parent: IOHandler = None) -> None:
-        self.app_name, self.app_desc, self.run_mode, self.callback, self.name, self.parent = app_name, app_desc, run_mode, callback, Maybe(_name).else_("main"), _parent
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode, callback, subtypes, Maybe(_name).else_("main"), _parent
         self.config = Config() if self.parent is None else self.parent.config
 
         self.arguments: Dict[str, Argument] = {}
@@ -76,6 +71,9 @@ class IOHandler:
         if shortform is not None:
             argument.aliases = sorted([shortform, *argument.aliases], key=len)
 
+        if isinstance(argument.argtype, Validator):
+            argument.argtype.use_subtypes = self.subtypes
+
         self.arguments[argument.name] = argument
 
     def add_subcommand(self, name: str) -> IOHandler:
@@ -84,8 +82,8 @@ class IOHandler:
         self.subcommands[name] = subcommand
         return subcommand
 
-    def process(self, values: dict = None, handler: IOHandler = None) -> NameSpaceDict:
-        """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
+    def process(self, values: dict = None, handler: IOHandler = None) -> Dict_:
+        """Collect input using this IOHandler's 'run_mode' and return a Dict_ holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
@@ -125,7 +123,7 @@ class IOHandler:
         else:
             RunMode.raise_if_not_a_member(self.run_mode)
 
-    def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
+    def _save_latest_input_config(self, namespace: Dict_) -> None:
         self._latest.contents = namespace
 
     def _load_latest_input_config(self) -> Dict[str, Any]:

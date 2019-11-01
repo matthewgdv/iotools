@@ -20,7 +20,7 @@ class ArgParser(argparse.ArgumentParser):
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
         for arg in self.handler.arguments.values():
-            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.type_validator(arg), choices=arg.choices, required=arg.required, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
+            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.validate_and_set(arg), choices=arg.choices, required=arg.required, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -52,7 +52,7 @@ class ArgParser(argparse.ArgumentParser):
         return self.formatter_class(prog=self.prog, max_help_position=2000, width=2000)
 
     @staticmethod
-    def type_validator(argument: Argument) -> Callable[Any, bool]:
+    def validate_and_set(argument: Argument) -> Callable[Any, bool]:
         def wrapper(candidate: Any) -> bool:
             argument.value = candidate
             return argument.value

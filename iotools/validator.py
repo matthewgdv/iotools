@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, List, Callable
+from typing import Any, Union, List, Callable, Iterable
 import pathlib
 import enum
 import copy
@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Enum, Str
+from subtypes import DateTime, Enum, Str, List_, Dict_
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -56,12 +56,11 @@ class Validator:
     dtype = None
     converter = None
 
-    def __init__(self, *, nullable: bool = False, strict: bool = False, choices: enum.Enum = None) -> None:
-        self.nullable = self.strict = None  # type: bool
-        self.choices: list = None
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
+        self.nullable, self.use_subtypes = nullable, use_subtypes
+        self.choices: set = None
         self.conditions: List[Condition] = []
 
-        self.set_nullable(nullable).set_strict(strict)
         if choices is not None:
             self.set_choices(choices)
 
@@ -78,11 +77,7 @@ class Validator:
         self.nullable = nullable
         return self
 
-    def set_strict(self, strict: bool = True) -> Validator:
-        self.strict = strict
-        return self
-
-    def set_choices(self, enumeration: enum.Enum) -> Validator:
+    def set_choices(self, enumeration: Union[enum.Enum, Iterable]) -> Validator:
         self.choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
         return self
 
@@ -94,7 +89,7 @@ class Validator:
         if value is None:
             return bool(self.nullable)
 
-        if not self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).is_type():
+        if not self.converter(value, strict_level=typepy.StrictLevel.MIN).is_type():
             return False
 
         try:
@@ -112,7 +107,7 @@ class Validator:
                 raise TypeConversionError(self, value)
         else:
             try:
-                ret = self.converter(value, strict_level=typepy.StrictLevel.MAX if self.strict else typepy.StrictLevel.MIN).convert()
+                ret = self.converter(value, strict_level=typepy.StrictLevel.MIN).convert()
             except typepy.TypeConversionError:
                 raise TypeConversionError(self, value)
 
@@ -123,7 +118,10 @@ class Validator:
                 if not condition(ret):
                     raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
 
-            return ret
+            return ret if not self.use_subtypes else self._to_subtype(ret)
+
+    def _to_subtype(self, value: Any) -> Any:
+        return value
 
     def _try_eval(self, value: Any) -> Any:
         if isinstance(value, str):
@@ -179,6 +177,9 @@ class StringValidator(Validator):
     def min_len(self, length: int) -> StringValidator:
         self.conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
         return self
+
+    def _to_subtype(self, value: str) -> Str:
+        return Str(value)
 
 
 class IntegerValidator(Validator):
@@ -265,6 +266,9 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
             validator = Validate.Type(self.val_dtype, nullable=True)
             return [validator(item) for item in super().convert(value)]
 
+    def _to_subtype(self, value: list) -> List_:
+        return List_(value)
+
 
 class SetValidator(ListValidator):
     """A validator that can handle floating points numbers."""
@@ -319,6 +323,9 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
             key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
+    def _to_subtype(self, value: dict) -> Dict_:
+        return Dict_(value)
+
 
 class DateTimeValidator(Validator):
     """A validator that can handle datetimes. Returns a subtypes.DateTime instance on Validator.convert(). If a datetime.datetime object is desired, call DateTime.to_datetime()."""
@@ -332,9 +339,8 @@ class DateTimeValidator(Validator):
         self.conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
         return self
 
-    def convert(self, value) -> DateTime:
-        converted = super().convert(value)
-        return None if converted is None else DateTime.from_datetime(converted)
+    def _to_subtype(self, value: dt.datetime) -> DateTime:
+        return DateTime.from_datetime(value)
 
 
 class PathValidator(Validator):
@@ -401,18 +407,18 @@ class Validate(Enum):
     @classmethod
     def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
         """Return a validator appropriate to the dtype passed."""
-        dtypes = {member.value.dtype: member.value for member in cls}
-        dtypes.update({None: AnythingValidator})
-        validator = dtypes.get(dtype)
-
-        if validator is not None:
-            return validator(**kwargs)
+        if issubclass_safe(dtype, Validator):
+            return dtype(**kwargs)
         else:
-            if issubclass_safe(dtype, Validator):
-                return dtype(**kwargs)
+            dtypes = {member.value.dtype: member.value for member in cls}
+            dtypes.update({None: AnythingValidator})
+            validator = dtypes.get(dtype)
+
+            if validator is not None:
+                return validator(**kwargs)
             else:
-                for key, val in dtypes.items():
-                    if issubclass_safe(dtype, key):
-                        return val(**kwargs)
+                for validator_dtype, validator in dtypes.items():
+                    if issubclass_safe(dtype, validator_dtype):
+                        return validator(**kwargs)
                 else:
                     return UnknownTypeValidator(constructor=dtype, **kwargs)

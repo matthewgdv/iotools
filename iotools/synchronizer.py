@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 
-from subtypes import NameSpaceDict
+from subtypes import Dict_
 from iotools.serializer import LostObject
 
 from .widget import TabPage
@@ -31,7 +31,7 @@ class Synchronizer:
     def current_node(self) -> Node:
         return self.root.get_active_child()
 
-    def run_programatically(self, values: NameSpaceDict, handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
+    def run_programatically(self, values: Dict_, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
         node = self.handler_mappings[handler] if handler is not None else self.root
         if values:
             node.set_values_from_namespace_ascending(namespace=values)
@@ -39,12 +39,12 @@ class Synchronizer:
         node.validate_argument_dependencies_ascending()
         return node.get_namespace_ascending(), node.handler
 
-    def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
+    def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
         gui = ArgsGui(sync=self, values=values, handler=handler)
         gui.start_loop()
         return gui.output
 
-    def run_from_commandline(self, args: List[str] = None, values: NameSpaceDict = None, handler: IOHandler = None) -> Tuple[NameSpaceDict, IOHandler]:
+    def run_from_commandline(self, args: List[str] = None, values: Dict_ = None, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
         self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)
         self.root.parser.add_arguments_from_handler()
         self.root.add_subparsers_recursively()
@@ -74,7 +74,7 @@ class Synchronizer:
         """Set all widget states to their argument defaults from this node to the root."""
         self.current_node.set_widgets_to_defaults_ascending()
 
-    def set_widgets_from_namespace_recursively(self, namespace: NameSpaceDict) -> None:
+    def set_widgets_from_namespace_recursively(self, namespace: Dict_) -> None:
         self.root.set_widgets_from_namespace_recursively(namespace=namespace)
 
 
@@ -122,10 +122,10 @@ class Node:
         nodes = [self] if nodes is None else [self, *nodes]
         return nodes if self.parent is None else self.parent.get_topdown_hierarchy_ascending(nodes=nodes)
 
-    def get_namespace(self) -> NameSpaceDict:
-        return NameSpaceDict({name: argument.value for name, argument in self.handler.arguments.items()})
+    def get_namespace(self) -> Dict_:
+        return Dict_({name: argument.value for name, argument in self.handler.arguments.items()})
 
-    def get_namespace_ascending(self) -> NameSpaceDict:
+    def get_namespace_ascending(self) -> Dict_:
         outer_namespace = namespace = self.sync.root.get_namespace()
 
         if self is not self.sync.root:
@@ -135,12 +135,12 @@ class Node:
 
         return outer_namespace
 
-    def set_values_from_namespace(self, namespace: NameSpaceDict) -> None:
+    def set_values_from_namespace(self, namespace: Dict_) -> None:
         for name, argument in self.handler.arguments.items():
             if name in namespace:
                 argument.value = namespace[name]
 
-    def set_values_from_namespace_ascending(self, namespace: NameSpaceDict) -> None:
+    def set_values_from_namespace_ascending(self, namespace: Dict_) -> None:
         self.sync.root.set_values_from_namespace(namespace=namespace)
 
         if self is not self.sync.root:
@@ -161,12 +161,12 @@ class Node:
         if self.parent is not None:
             self.parent.set_widgets_to_defaults_ascending()
 
-    def set_widgets_from_namespace(self, namespace: NameSpaceDict) -> None:
+    def set_widgets_from_namespace(self, namespace: Dict_) -> None:
         for name, argument in self.handler.arguments.items():
             if name in namespace:
                 argument.widget.state = namespace[name]
 
-    def set_widgets_from_namespace_ascending(self, namespace: NameSpaceDict) -> None:
+    def set_widgets_from_namespace_ascending(self, namespace: Dict_) -> None:
         self.sync.root.set_widgets_from_namespace(namespace=namespace)
 
         if self.sync.current_node is not self.sync.root:
@@ -174,7 +174,7 @@ class Node:
                 namespace = namespace[node.handler.name]
                 node.set_widgets_from_namespace(namespace=namespace)
 
-    def set_widgets_from_namespace_recursively(self, namespace: NameSpaceDict) -> None:
+    def set_widgets_from_namespace_recursively(self, namespace: Dict_) -> None:
         self.set_widgets_from_namespace(namespace=namespace)
         for name, child in self.children.items():
             if name in namespace:
