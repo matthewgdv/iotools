@@ -5,7 +5,7 @@ import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, AutoEnum, Frame, NameSpaceDict
+from subtypes import Enum, AutoEnum, Frame, Dict_
 from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
@@ -84,8 +84,8 @@ class IOHandler:
         self.subcommands[name] = subcommand
         return subcommand
 
-    def process(self, values: dict = None, handler: IOHandler = None) -> NameSpaceDict:
-        """Collect input using this IOHandler's 'run_mode' and return a NameSpaceDict holding the parsed arguments, coerced to appropriate python types."""
+    def process(self, values: dict = None, handler: IOHandler = None) -> Dict_:
+        """Collect input using this IOHandler's 'run_mode' and return a Dict_ holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
@@ -125,7 +125,7 @@ class IOHandler:
         else:
             RunMode.raise_if_not_a_member(self.run_mode)
 
-    def _save_latest_input_config(self, namespace: NameSpaceDict) -> None:
+    def _save_latest_input_config(self, namespace: Dict_) -> None:
         self._latest.contents = namespace
 
     def _load_latest_input_config(self) -> Dict[str, Any]:

@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from maybe import Maybe
-from subtypes import NameSpaceDict
+from subtypes import Dict_
 from pathmagic import PathLike, File, Dir
 from miscutils import executed_within_user_tree
 
@@ -29,7 +29,7 @@ class Config:
 
         self.appdata = Dir.from_appdata(app_name=self.app_name, app_author="pythondata", systemwide=Maybe(systemwide).else_(not executed_within_user_tree()))
         self.file = self.appdata.new_file(name="config", extension="json")
-        self.data: NameSpaceDict = Maybe(self.file.contents).else_(NameSpaceDict(self.default or {}))
+        self.data: Dict_ = Maybe(self.file.contents).else_(Dict_(self.default or {}))
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"

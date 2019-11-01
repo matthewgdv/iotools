@@ -7,7 +7,7 @@ import pandas as pd
 from PyQt5 import QtWidgets
 
 from maybe import Maybe
-from subtypes import NameSpaceDict
+from subtypes import Dict_
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
@@ -25,7 +25,7 @@ class ArgsGui(FormGui):
     def __init__(self, sync: Synchronizer, values: dict = None, handler: str = None) -> None:
         super().__init__(name=sync.root.handler.app_name)
         self.sync = sync
-        self.output: Tuple[NameSpaceDict, IOHandler] = None
+        self.output: Tuple[Dict_, IOHandler] = None
 
         self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)
