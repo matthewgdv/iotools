@@ -9,9 +9,9 @@ from subtypes import Enum, AutoEnum, Frame, Dict_
 from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
-from .validator import Validate, Condition, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from .validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
-import iotools
+from .config import ThisConfig as Config
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments
@@ -30,11 +30,6 @@ class ArgType(Enum):
     DATETIME, DECIMAL, FRAME = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
-class Config(iotools.Config):
-    """A config class granting access to an os-specific appdata directory for use by this application."""
-    app_name = iotools.__name__
-
-
 class IOHandler:
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
@@ -43,8 +38,8 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, _name: str = None, _parent: IOHandler = None) -> None:
-        self.app_name, self.app_desc, self.run_mode, self.callback, self.name, self.parent = app_name, app_desc, run_mode, callback, Maybe(_name).else_("main"), _parent
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode, callback, subtypes, Maybe(_name).else_("main"), _parent
         self.config = Config() if self.parent is None else self.parent.config
 
         self.arguments: Dict[str, Argument] = {}
@@ -75,6 +70,9 @@ class IOHandler:
 
         if shortform is not None:
             argument.aliases = sorted([shortform, *argument.aliases], key=len)
+
+        if isinstance(argument.argtype, Validator):
+            argument.argtype.use_subtypes = self.subtypes
 
         self.arguments[argument.name] = argument
 

@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Enum, Str
+from subtypes import DateTime, Enum, Str, List_, Dict_
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -56,12 +56,11 @@ class Validator:
     dtype = None
     converter = None
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None) -> None:
-        self.nullable: bool = None
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
+        self.nullable, self.use_subtypes = nullable, use_subtypes
         self.choices: set = None
         self.conditions: List[Condition] = []
 
-        self.set_nullable(nullable)
         if choices is not None:
             self.set_choices(choices)
 
@@ -119,7 +118,10 @@ class Validator:
                 if not condition(ret):
                     raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
 
-            return ret
+            return ret if not self.use_subtypes else self._to_subtype(ret)
+
+    def _to_subtype(self, value: Any) -> Any:
+        return value
 
     def _try_eval(self, value: Any) -> Any:
         if isinstance(value, str):
@@ -175,6 +177,9 @@ class StringValidator(Validator):
     def min_len(self, length: int) -> StringValidator:
         self.conditions.append(Condition(lambda val: len(val) >= length, name=f"len(val) >= {length}"))
         return self
+
+    def _to_subtype(self, value: str) -> Str:
+        return Str(value)
 
 
 class IntegerValidator(Validator):
@@ -261,6 +266,9 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
             validator = Validate.Type(self.val_dtype, nullable=True)
             return [validator(item) for item in super().convert(value)]
 
+    def _to_subtype(self, value: list) -> List_:
+        return List_(value)
+
 
 class SetValidator(ListValidator):
     """A validator that can handle floating points numbers."""
@@ -315,6 +323,9 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
             key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
+    def _to_subtype(self, value: dict) -> Dict_:
+        return Dict_(value)
+
 
 class DateTimeValidator(Validator):
     """A validator that can handle datetimes. Returns a subtypes.DateTime instance on Validator.convert(). If a datetime.datetime object is desired, call DateTime.to_datetime()."""
@@ -328,9 +339,8 @@ class DateTimeValidator(Validator):
         self.conditions.append(Condition(condition=lambda val: val > date, name=f"val > {date}"))
         return self
 
-    def convert(self, value) -> DateTime:
-        converted = super().convert(value)
-        return None if converted is None else DateTime.from_datetime(converted)
+    def _to_subtype(self, value: dt.datetime) -> DateTime:
+        return DateTime.from_datetime(value)
 
 
 class PathValidator(Validator):

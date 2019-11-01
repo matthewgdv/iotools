@@ -12,6 +12,7 @@ from pathmagic import Dir
 from miscutils import Counter, Timer, executed_within_user_tree
 
 from .log import PrintLog
+from .iohandler import RunMode
 
 FuncSig = TypeVar("FuncSig", bound=Callable)
 
@@ -119,7 +120,7 @@ class Script(metaclass=ScriptMeta):
     arguments: Dict[str, Any]
     log: PrintLog
 
-    run_mode = "smart"
+    run_mode = RunMode.SMART
     verbose = serialize = False
 
     def __repr__(self) -> str:

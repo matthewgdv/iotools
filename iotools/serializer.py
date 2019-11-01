@@ -13,10 +13,9 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import dill
 
 from subtypes import Singleton
-from pathmagic import Dir, PathLike
+from miscutils import lazy_property
 
-
-# TODO: save the encryption key for Secrets in Config.appdata
+from .config import ThisConfig as Config
 
 
 class Lost(Singleton):
@@ -196,14 +195,17 @@ class UnpickleableItemHelper:
 class Secrets:
     """Class to abstract away serializing python objects using fernet encryption. Requires a key stored at the given 'key_path'."""
 
-    def __init__(self, file: os.PathLike, key_path: PathLike = None, salt: bytes = b"") -> None:
-        self.pw = Dir.from_home().new_file("secrets", "txt") if key_path is None else key_path
+    def __init__(self, file: os.PathLike, salt: bytes = b"") -> None:
+        self.config = Config()
         self.serializer, self.salt = Serializer(file), salt
-        self.fernet = self._generate_fernet()
+
+        with self.config:
+            self.config.data.setdefault("encryption_key", "")
 
     def provide_new_encryption_key(self, key: str) -> None:
-        """Provide a new encryption_key at this object's 'key_path'."""
-        self.pw.contents = key
+        """Provide a new encryption_key for this class to use. It will be persisted to the filesystem."""
+        with self.config:
+            self.config.data.encryption_key = key
 
     def encrypt(self, obj: Any) -> None:
         """Serialize, then encrypt the given python object at this object's file path."""
@@ -213,7 +215,12 @@ class Secrets:
         """Decrypt, then deserialize this object's file path back into a python object."""
         return self.serializer.from_bytes(self.fernet.decrypt(self.serializer.file.path.read_bytes()))
 
-    def _generate_fernet(self) -> Fernet:
+    @lazy_property
+    def fernet(self) -> Fernet:
+        encryption_key = self.config.data.encryption_key
+        if not encryption_key:
+            raise ValueError(f"Must provide an encryption key using {type(self).__name__}.{self.provide_new_encryption_key.__name__}() before continuing.")
+
         kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=self.salt, iterations=100000, backend=default_backend())
-        key = base64.urlsafe_b64encode(kdf.derive(self.pw.contents.encode()))
+        key = base64.urlsafe_b64encode(kdf.derive(encryption_key.encode()))
         return Fernet(key)

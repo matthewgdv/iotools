@@ -11,7 +11,7 @@ from subtypes import Dict_
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
-from .gui import FormGui
+from .gui import ThreePartGui
 from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect
 
 if TYPE_CHECKING:
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .synchronizer import Synchronizer
 
 
-class ArgsGui(FormGui):
+class ArgsGui(ThreePartGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
     def __init__(self, sync: Synchronizer, values: dict = None, handler: str = None) -> None:
@@ -53,9 +53,9 @@ class ArgsGui(FormGui):
             Button(text='Latest Config', command=self.sync.set_widgets_from_last_config_at_current_node).stack()
             Button(text='Default Config', command=self.sync.set_widgets_to_defaults_from_current_node_ascending).stack()
 
-            self.buttons.layout.addStretch()
+            self.bottom.layout.addStretch()
             self.validation_label = Label(text="Not yet validated.").stack()
-            self.buttons.layout.addStretch()
+            self.bottom.layout.addStretch()
 
             Button(text='Validate', command=self.set_arguments_from_widgets).stack()
             Button(text='Proceed', command=self.try_to_proceed).stack()

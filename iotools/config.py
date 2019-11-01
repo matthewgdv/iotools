@@ -7,6 +7,8 @@ from subtypes import Dict_
 from pathmagic import PathLike, File, Dir
 from miscutils import executed_within_user_tree
 
+import iotools
+
 
 class Config:
     """
@@ -69,3 +71,7 @@ class Config:
     def save(self) -> None:
         """Persist the changes to the 'Config.data' attribute to the config file."""
         self.file.contents = self.data
+
+
+class ThisConfig(Config):
+    name = iotools.__name__

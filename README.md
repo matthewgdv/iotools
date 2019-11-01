@@ -32,7 +32,7 @@ The `Argument` class
 * An `ArgType` `Enum` is provided to be passed to the `Argument(argtype=)` constructor argument. This will let the `IOHandler` perform type checking and coercion. Currently the
   recognized types are:
 
-    | member    | with Argument(subtypes=True)  | with Argument(subtypes=False)                         |
+    | member    | with IOHandler(subtypes=True) | with IOHandler(subtypes=False)                        |
     | --------- | ----------------------------- | ----------------------------------------------------- |
     | STRING    | subtypes.Str                  | str                                                   |
     | INTEGER   | int                           | int                                                   |
@@ -97,7 +97,7 @@ The `Script` class
 * Upon exiting the constructor, optionally serializes the object to the same directory as the log
 * Any kwargs passed to the constructor are stored in the `Script.arguments` attribute
 * The `Script.name` attribute is automatically set to the name of the file the class is defined in
-* For use with `IOHandler`, the `Script.run_mode` attribute is automatically 'smart' by default, but can be set as a constuctor kwarg
+* For use with `IOHandler`, the `Script.run_mode` attribute is automatically 'smart' by default, but can be overriden by setting it as a class attribute
 
 The `Cache` class
 --------------------
@@ -111,8 +111,8 @@ The `Serializer` class
 
 The `Secrets` class
 --------------------
-* Serialize, then encrypt any python object and write it to a file and vice-versa
-* Encryption key must be read from a file, by default '~/secrets.txt', and must be set before use
+* Serialize, then encrypt any python object and write it to a file and vice-versa.
+* Encryption key must be set before first use. It will be persisted to an appdir on the filesystem.
 
 
 Installation
