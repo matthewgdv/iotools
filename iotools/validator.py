@@ -19,7 +19,7 @@ class TypeConversionError(typepy.TypeConversionError):
     """An exception class representing failed conversion of one type to another."""
 
     def __init__(self, validator: Validator, value: Any) -> None:
-        super().__init__(f"Failed {'strict' if validator.strict else 'permissive'}, {'' if validator.nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
+        super().__init__(f"Failed {'' if validator.nullable else 'non-'}nullable conversion of {repr(value)} (type {type(value).__name__}) to type {validator.converter.__name__}.")
 
 
 class Condition:
