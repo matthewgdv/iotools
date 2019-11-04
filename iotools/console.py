@@ -204,7 +204,8 @@ class SysTrayApp:
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         Console.show_console()
-        self.tray.__exit__(ex_type, ex_value, ex_traceback)
+        if ex_type is None:
+            self.tray.__exit__(ex_type, ex_value, ex_traceback)
 
     @staticmethod
     def _kill(systray: Any) -> None:
