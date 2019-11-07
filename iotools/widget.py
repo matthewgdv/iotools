@@ -91,18 +91,36 @@ class WidgetHandler:
         self.widget.setEnabled(val)
 
     @property
+    def tooltip(self) -> str:
+        return self.widget.toolTip()
+
+    @tooltip.setter
+    def tooltip(self, val: str) -> str:
+        return self.widget.setToolTip(val)
+
+    @property
     def parent(self) -> Any:
         """A property controlling the parent of the widget. When set, both objects acquire references to one another, and the child attaches to the parent graphically."""
         return self._parent
 
     @parent.setter
     def parent(self, val: Any) -> None:
+        if self.parent is not None and self in self.parent.children:
+            self.parent.children.remove(self)
+
         self._parent = val
         val.children.append(self)
 
+        self.widget.setParent(self.parent.widget)
         self.parent.layout.addWidget(self.widget)
 
     def stack(self) -> WidgetHandler:
+        """Stack this widget onto the last widget or gui element within context (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
+        from .gui import Gui
+        self.parent = Gui.stack[-1]
+        return self
+
+    def grid(self, ) -> WidgetHandler:
         """Stack this widget onto the last widget or gui element within context (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
         from .gui import Gui
         self.parent = Gui.stack[-1]
@@ -114,13 +132,14 @@ class WidgetFrame(WidgetHandler):
 
     layout_constructor = QtWidgets.QGridLayout
 
-    def __init__(self):
+    def __init__(self, margins: int = None):
         super().__init__()
 
         self.widget, self.layout = QtWidgets.QFrame(), self.layout_constructor()
 
         self.widget.setLayout(self.layout)
-        self.layout.setContentsMargins(0, 0, 0, 0)
+        if margins is not None:
+            self.layout.setContentsMargins(margins, margins, margins, margins)
 
     def set_scroll_area_dimensions(self, default_pixels: int = 550):
         """Overridable method used to set the scroll area's dimensions."""
@@ -152,6 +171,38 @@ class HorizontalFrame(WidgetFrame):
 
 
 class VerticalFrame(WidgetFrame):
+    layout_constructor = QtWidgets.QVBoxLayout
+
+
+class GroupBox(WidgetHandler):
+    layout_constructor = QtWidgets.QGridLayout
+
+    def __init__(self, text: str, state: bool = None) -> None:
+        super().__init__()
+
+        self.widget, self.layout = QtWidgets.QGroupBox(), self.layout_constructor()
+        self.widget.setLayout(self.layout)
+
+        self.get_text, self.set_text = self.widget.title, self.widget.setTitle
+
+        self.text, self.state = text, state
+
+    @property
+    def state(self) -> bool:
+        return None if not self.widget.isCheckable() else self.widget.isChecked()
+
+    @state.setter
+    def state(self, val: bool) -> None:
+        self.widget.setCheckable(val is not None)
+        if val is not None:
+            self.widget.setChecked(val)
+
+
+class HorizontalGroupBox(GroupBox):
+    layout_constructor = QtWidgets.QHBoxLayout
+
+
+class VerticalGroupBox(GroupBox):
     layout_constructor = QtWidgets.QVBoxLayout
 
 
@@ -224,7 +275,7 @@ class CheckBar(HorizontalFrame):
     """A manager class for a list of Checkbox widgets placed into a single widget."""
 
     def __init__(self, choices: Dict[str, bool] = None) -> None:
-        super().__init__()
+        super().__init__(margins=0)
 
         self.checkboxes = [Checkbox(state=state, text=text) for text, state in choices.items()]
 

@@ -40,9 +40,7 @@ class Synchronizer:
         return node.get_namespace_ascending(), node.handler
 
     def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
-        gui = ArgsGui(sync=self, values=values, handler=handler)
-        gui.start_loop()
-        return gui.output
+        return ArgsGui(sync=self, values=values, handler=handler).start().output
 
     def run_from_commandline(self, args: List[str] = None, values: Dict_ = None, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
         self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)

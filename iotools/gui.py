@@ -1,60 +1,57 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, List, Collection
+from typing import Any, Type, Collection
 
 from PyQt5 import QtWidgets
 
-from miscutils import is_running_in_ipython
-
-from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetHandler, HorizontalFrame, VerticalFrame
+from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetFrame, HorizontalFrame, VerticalFrame
 
 
-class Gui(QtWidgets.QWidget, WidgetHandler):
+# TODO: Add extra features to Gui (such as menu bar, toolbars, status bar, etc.)
+
+
+class Gui(QtWidgets.QMainWindow):
     """
     A Gui class that abstracts most of the PyQt5 internals behind a consistent API.
     Widgets can be stacked onto a parent by calling WidgetHandler.stack() while within the context of their parent (a WidgetFrame or a Gui).
     """
     app, stack = QtWidgets.QApplication([]), []
 
-    def __init__(self, name: str = None, layout: Any = QtWidgets.QVBoxLayout):
+    def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, kill_on_close: bool = True):
         super().__init__()
-        self.children: List[WidgetHandler] = []
-        self._parent: WidgetHandler = None
+        self.kill_on_close = kill_on_close
 
-        self.widget, self.layout = self, layout()
-        self.widget.setLayout(self.layout)
+        self.central = central_widget_class()
+        self.central.widget.setParent(self)
+        self.setCentralWidget(self.central.widget)
 
         if name is not None:
-            self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
+            self.setWindowTitle(name), self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
 
     def __enter__(self) -> Gui:
-        Gui.stack.append(self)
+        Gui.stack.append(self.central)
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         Gui.stack.pop(-1)
 
-    def start_loop(self) -> None:
+    def start(self) -> Gui:
         """Begin the event loop. Will block until 'Gui.end_loop()' is called."""
         self.show()
         self.app.exec()
 
-    def end_loop(self) -> None:
+        return self
+
+    def end(self) -> Gui:
         """End the event loop and resume the execution of the program."""
         self.hide()
         self.app.quit()
 
-    def kill(self) -> None:
-        """Exit out of the the current python interpreter. Raises RuntimeError in an interactive IPython session. Automatically called if the Gui quits unexpectedly."""
-        if is_running_in_ipython():
-            self.app.quit()
-            raise RuntimeError("I/O GUI has closed unexpectedly.")
-        else:
-            sys.exit()
+        return self
 
     def closeEvent(self, event: Any) -> None:
-        self.kill()
+        sys.exit() if self.kill_on_close else self.end()
 
 
 class ThreePartGui(Gui):
@@ -65,9 +62,10 @@ class ThreePartGui(Gui):
         with self:
             self.top, self.main, self.bottom = HorizontalFrame().stack(), VerticalFrame().stack(), HorizontalFrame().stack()
 
-    def start_loop(self):
+    def start(self) -> ThreePartGui:
         self.main.make_scrollable()
-        super().start_loop()
+        super().start()
+        return self
 
 
 class HtmlGui(Gui):
@@ -115,5 +113,5 @@ class ProgressBarGui(Gui):
             self.app.quit()
             raise StopIteration
 
-    def start_loop(self) -> None:
+    def start(self) -> None:
         raise RuntimeError(f"{type(self).__name__} object does not support the event loop, iterate over it instead.")

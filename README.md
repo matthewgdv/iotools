@@ -27,7 +27,7 @@ The `IOHandler` class
 
 The `Argument` class
 --------------------
-* The `Argument()` constructor arguments telling the IOHandler how to handle nullability, default values, implicit coercion to the right type, whether the argument is optional,
+* The `Argument()` constructor arguments tell the IOHandler how to handle nullability, default values, implicit coercion to the right type, whether the argument is optional,
   commandline aliases, conditions, dependencies, etc.
 * An `ArgType` `Enum` is provided to be passed to the `Argument(argtype=)` constructor argument. This will let the `IOHandler` perform type checking and coercion. Currently the
   recognized types are:
@@ -51,7 +51,7 @@ The `Argument` class
 
 The `Validate` class
 --------------------
-* An accessor class granting access to several Validator classes through attribute access
+* An accessor class granting access to several Validator classes through attribute access.
 * Currently supports type checking and implicit coercion of the input value to the following supported types (`int`, `float`, `bool`, `str`, `list`, `set`, `dict`,
   `subtypes.DateTime`, `pathlib.Path`, `pathmagic.File`, `pathmagic.Dir`)
 * Its attributes are: `Validate.Int`, `Validate.Float`, `Validate.Bool`, `Validate.Str`, `Validate.List`, `Validate.Set`, `Validate.Dict`, `Validate.DateTime`, `Validate.Path`,
@@ -61,8 +61,8 @@ The `Validator` classes
 --------------------
 * Currently there are `IntegerValidator`, `FloatValidator`, `BoolValidator`, `StringValidator`, `ListValidator`, `SetValidator`, `DictionaryValidator`, `DateTimeValidator`,
   `PathValidator`, `FileValidator`, `DirValidator`
-* Some of these validators are implemented as a wrapper over typepy, but the api is different
-* Validators can handle nullability as desired
+* Some of these validators are implemented as a wrapper over typepy, but the api is different.
+* Validators can handle nullability as desired.
 * Some validators have additional validation methods to check for values in valid ranges. For example: `Validate.Int().max_value(7).is_valid(9)` would return False.
 * Additional conditions can be added to a validator by passing callbacks that return boolean values to `Validator.add_condition()`
 * The validator can be reused for any number of values once initially set up.
@@ -71,14 +71,14 @@ The `Validator` classes
 The `Gui` class and its various template subclasses
 --------------------
 * Gui class and several template subclasses that can be used alongside the various `WidgetManager` objects to easily set up a GUI, with the exact internals of the
-  underlying QT classes abstracted away behind a consistent API. Makes it very quick and easy to set up a simple GUI. Is a thin wrapper around PyQT5.
+  underlying QT classes abstracted away behind a consistent API. Makes it very quick and easy to set up a simple GUI. Is a thin wrapper around PyQt5.
 * `ThreePartGui` class for quickly setting up Horizontal-Vertical-Horizontal guis
 * `HTMLGui` class for Rendering HTML in a separate window
 
 The `WidgetManager` class and its various widget subclasses
 --------------------
-* Currently supports the following widgets: Label, Button, Checkbox, CheckBar, DropDown, Entry, Text, FileSelect, DirSelect, Calendar, DateTimeEdit, HtmlDisplay, ProgressBar,
-  Table, ListTable, DictTable, Frame, WidgetFrame, HorizontalFrame, VerticalFrame
+* Currently supports the following widgets: `Label`, `Button`, `Checkbox`, `CheckBar`, `DropDown`, `Entry`, `Text`, `FileSelect`, `DirSelect`, `Calendar`, `DateTimeEdit`,
+  `HtmlDisplay`, `ProgressBar`, `Table`, `ListTable`, `DictTable`, `WidgetFrame`, `HorizontalFrame`, `VerticalFrame`
 * Have a consistent API primarily using the properties `WidgetManager.active`, `WidgetManager.state`, `WidgetManager.text`, and `WidgetManager.parent`.
 
 The `Console` class
@@ -92,17 +92,17 @@ The `Console` class
 The `Script` class
 --------------------
 * Uses a metaclass that wraps every method and the methods of inner classes (recursively) in a profiler, showing duration, arguments, and return value of each method call,
-  and a repr() of the script object
-* Writes profiling information and print statements to a log
+  and a `repr()` of the script object
+* Writes this profiling information and `print()` statements to a log file
 * Upon exiting the constructor, optionally serializes the object to the same directory as the log
-* Any kwargs passed to the constructor are stored in the `Script.arguments` attribute
+* Any `**kwargs` passed to the constructor are stored in the `Script.arguments` attribute
 * The `Script.name` attribute is automatically set to the name of the file the class is defined in
 * For use with `IOHandler`, the `Script.run_mode` attribute is automatically 'smart' by default, but can be overriden by setting it as a class attribute
 
 The `Cache` class
 --------------------
 * Serializes any python object that can be pickled by Dill into a file
-* Interface similar to a dict for interacting with the items in the cache: `Cache.put()`, `Cache.get()`, `Cache.pop()`, and `Cache.setdefault()`
+* Interface similar to a `dict` for interacting with the items in the cache: `Cache.put()`, `Cache.get()`, `Cache.pop()`, and `Cache.setdefault()`
 
 The `Serializer` class
 --------------------
@@ -112,7 +112,7 @@ The `Serializer` class
 The `Secrets` class
 --------------------
 * Serialize, then encrypt any python object and write it to a file and vice-versa.
-* Encryption key must be set before first use. It will be persisted to an appdir on the filesystem.
+* Encryption key must be set before first use. It will be persisted to a json config file at an os-appropriate appdir.
 
 
 Installation
