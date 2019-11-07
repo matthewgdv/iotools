@@ -364,7 +364,7 @@ class PathSelect(HorizontalFrame):
     prompt: str = None
 
     def __init__(self, state: PathLike = None, padding: Tuple[int, int] = (10, 5), button_on_left: bool = True) -> None:
-        super().__init__()
+        super().__init__(margins=0)
 
         self.button, self.label = Button(text='Browse...', command=self.browse), Label()
         self.button.widget.setSizePolicy(QtWidgets.QSizePolicy.Fixed, QtWidgets.QSizePolicy.Fixed)
