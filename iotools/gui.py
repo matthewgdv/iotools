@@ -60,7 +60,7 @@ class ThreePartGui(Gui):
     def __init__(self, name: str = None):
         super().__init__(name=name)
         with self:
-            self.top, self.main, self.bottom = HorizontalFrame().stack(), VerticalFrame().stack(), HorizontalFrame().stack()
+            self.top, self.main, self.bottom = HorizontalFrame(margins=0).stack(), VerticalFrame(margins=0).stack(), HorizontalFrame(margins=0).stack()
 
     def start(self) -> ThreePartGui:
         self.main.make_scrollable()
