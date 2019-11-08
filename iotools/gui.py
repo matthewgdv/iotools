@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Type, Collection
+from typing import Any, Type, Callable, Collection
 
+from PyQt5 import QtCore
 from PyQt5 import QtWidgets
+from PyQt5 import QtGui
+
+from subtypes import AutoEnum
+from pathmagic import File, PathLike
 
 from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetFrame, HorizontalFrame, VerticalFrame
-
+from iotools import res
 
 # TODO: Add extra features to Gui (such as menu bar, toolbars, status bar, etc.)
 
@@ -18,9 +23,9 @@ class Gui(QtWidgets.QMainWindow):
     """
     app, stack = QtWidgets.QApplication([]), []
 
-    def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, kill_on_close: bool = True):
+    def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, on_close: Callable = None):
         super().__init__()
-        self.kill_on_close = kill_on_close
+        self.name, self.on_close = name, on_close
 
         self.central = central_widget_class()
         self.central.widget.setParent(self)
@@ -51,14 +56,14 @@ class Gui(QtWidgets.QMainWindow):
         return self
 
     def closeEvent(self, event: Any) -> None:
-        sys.exit() if self.kill_on_close else self.end()
+        sys.exit() if self.on_close is None else self.on_close()
 
 
 class ThreePartGui(Gui):
     """Gui with 3 separate segments, a top segment, a main segment, and a bottom segment."""
 
-    def __init__(self, name: str = None):
-        super().__init__(name=name)
+    def __init__(self, name: str = None, on_close: Callable = None):
+        super().__init__(name=name, on_close=on_close)
         with self:
             self.top, self.main, self.bottom = HorizontalFrame(margins=0).stack(), VerticalFrame(margins=0).stack(), HorizontalFrame(margins=0).stack()
 
@@ -71,10 +76,67 @@ class ThreePartGui(Gui):
 class HtmlGui(Gui):
     """Gui designed to render an HTML string in a separate window."""
 
-    def __init__(self, name: str = None, text: str = None) -> None:
-        super().__init__(name=name)
+    def __init__(self, name: str = None, text: str = None, on_close: Callable = lambda: None) -> None:
+        super().__init__(name=name, on_close=on_close)
         with self:
-            self.html, self.button = HtmlDisplay(text=text).stack(), Button(text="continue", command=self.end_loop).stack()
+            self.html, self.button = HtmlDisplay(text=text).stack(), Button(text="continue", command=self.end).stack()
+
+
+class SystemTrayGui(Gui):
+    class NotificationLevel(AutoEnum):
+        Info, Warning, Critical  # noqa
+
+    notification_mappings = {
+        NotificationLevel.Info: 1,
+        NotificationLevel.Warning: 2,
+        NotificationLevel.Critical: 3
+    }
+
+    def __init__(self, name: str, hide_option: bool = None) -> None:
+        super().__init__(name=name)
+        self.hide_option = hide_option
+
+        self.menu = QtWidgets.QMenu(self)
+
+        self.widget = QtWidgets.QSystemTrayIcon(QtGui.QIcon(str(File.from_resource(package=res, name="python_icon", extension="ico"))))
+        self.widget.setContextMenu(self.menu)
+        self.widget.setToolTip(self.name)
+
+    def add_option(self, name: str, callback: Callable = None, icon_path: PathLike = None) -> SystemTrayGui:
+        action = QtWidgets.QAction(QtGui.QIcon(str(File.from_pathlike(icon_path))), name, self.menu) if icon_path is not None else QtWidgets.QAction(name, self.menu)
+        action.triggered.connect(callback)
+        self.menu.addAction(action)
+
+    def notify(self, message: str, level: str = NotificationLevel.Info, duration: int = 2) -> None:
+        self.widget.showMessage(self.name, message, self.notification_mappings.get(level, 1), duration*1000)
+
+    def start(self) -> SystemTrayGui:
+        self._add_default_options()
+        self.widget.show()
+        if self.hide_option is not None:
+            self.show()
+
+        self.app = QtWidgets.QApplication([])
+        self.app.exec()
+
+        return self
+
+    def _add_default_options(self) -> None:
+        if self.hide_option:
+            self.add_option(name="show/hide", callback=self._trigger, icon_path=File.from_resource(package=res, name="hide_icon", extension="png"))
+
+        self.add_option(name="quit", callback=self._shutdown, icon_path=File.from_resource(package=res, name="quit_icon", extension="png"))
+
+    def _trigger(self) -> None:
+        self.hide() if self.isVisible() else self.show()
+
+    def _shutdown(self) -> None:
+        self.widget.hide()
+        self.end()
+
+    @classmethod
+    def create(cls, name: str) -> SystemTrayGui:
+        cls(name=name).start()
 
 
 class ProgressBarGui(Gui):

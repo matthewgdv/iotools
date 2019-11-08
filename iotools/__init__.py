@@ -5,7 +5,7 @@ __all__ = [
     "Cache",
     "Config",
     "IOHandler", "Argument", "RunMode", "ArgType", "Validate",
-    "Gui", "HtmlGui", "ThreePartGui", "ProgressBarGui",
+    "Gui", "HtmlGui", "ThreePartGui", "SystemTrayGui",
     "Validate",
     "Script",
 ]
@@ -16,6 +16,6 @@ from .serializer import Serializer, Secrets
 from .cache import Cache
 from .log import Log, PrintLog
 from .iohandler import IOHandler, Argument, RunMode, ArgType
-from .gui import Gui, HtmlGui, ThreePartGui, ProgressBarGui
+from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui
 from .validator import Validate
 from .script import Script
