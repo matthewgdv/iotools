@@ -99,23 +99,28 @@ class Console:
 
     @staticmethod
     @contextlib.contextmanager
-    def surround_sep(lines: int = 1, length: int = 150, start: bool = True, end: bool = True) -> None:
+    def surround_sep(character: str = "-", start_sep: bool = True, stop_sep: bool = False, start_lines: int = 1, stop_lines: int = 1, start_length: int = 150, stop_length: int = 150,
+                     prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n", stop_padding: str = "\n") -> None:
         """Context manager that will print separators of the given lines and length on enter and/or exit (based on provided arguments)."""
         br = "\n"
-        if start:
-            print(f"{br}{('-'*length + br)*lines}", end=br)
-        try:
-            yield
-        finally:
-            if end:
-                print(f"{br}{('-'*length + br)*lines}", end=br)
+
+        print(prefix, end="")
+        if start_sep:
+            print(f"{((character*start_length + br)*start_lines).strip()}{start_padding}", end="")
+
+        yield
+
+        if stop_sep:
+            print(f"{stop_padding}{((character*stop_length + br)*stop_lines).strip()}", end="")
+        print(suffix, end="")
 
     @staticmethod
-    def print_sep(text: str = None, lines: int = 1, length: int = 150, start: bool = True, end: bool = False) -> None:
+    def print_sep(text: str = None, character: str = "-", start_sep: bool = True, stop_sep: bool = True, start_lines: int = 1, stop_lines: int = 1,
+                  start_length: int = 150, stop_length: int = 150, prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n", stop_padding: str = "\n", **kwargs: Any) -> None:
         """Print the given string with separators of the given lines and length before and/or after (based on provided arguments)."""
-        with Console.surround_sep(lines=lines, length=length, start=start, end=end):
+        with Console.surround_sep(character=character, start_sep=start_sep, stop_sep=stop_sep, start_lines=start_lines, stop_lines=stop_lines, start_length=start_length, stop_length=stop_length, prefix=prefix, suffix=suffix, start_padding=start_padding, stop_padding=stop_padding):
             if text is not None:
-                print(text)
+                print(text, **kwargs)
 
     @staticmethod
     def _collect_choice(choices: list, starting_index: int, desc: str, helptext: bool, display_repr: bool) -> Any:

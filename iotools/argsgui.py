@@ -12,6 +12,7 @@ from miscutils import issubclass_safe
 
 from .gui import ThreePartGui
 from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
+from .console import Console
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument
@@ -29,6 +30,8 @@ class ArgsGui(ThreePartGui):
         self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)
         self.populate_bottom_segment()
+
+        Console.print_sep("", start_lines=2, prefix="", suffix="", end="", stop_sep=False)
 
     def populate_top_segment(self) -> None:
         """Add widget(s) to the title segment."""
@@ -62,9 +65,9 @@ class ArgsGui(ThreePartGui):
     def try_to_proceed(self) -> None:
         """Validate that the widgets are providing valid arguments, set the argument values accordingly, and if valid end the event loop."""
         if not self.set_arguments_from_widgets():
-            print("ERROR: Cannot proceed until the warnings have been resolved...", end="\n\n")
+            Console.print_sep("ERROR: Cannot proceed until the warnings have been resolved...", start_sep=False, stop_length=75)
         else:
-            print(f"PROCEEDING...", end="\n\n")
+            Console.print_sep(f"PROCEEDING...", start_sep=False, suffix="\n\n")
             self.sync.clear_widget_references_recursively()
             self.end()
 
@@ -74,14 +77,14 @@ class ArgsGui(ThreePartGui):
         warnings = self.sync.current_node.set_values_from_widgets_catching_errors_as_warnings_ascending()
 
         if warnings:
-            print("\n".join(warnings), end="\n\n")
+            Console.print_sep("\n".join(warnings), start_sep=False, stop_length=75)
             self.validation_label.state = "Validation Failed!"
             self.validation_label.widget.setToolTip("\n".join(warnings))
             return False
         else:
             node = self.sync.current_node
             self.output = node.get_namespace_ascending(), node.handler
-            print(f"VALIDATION PASSED\nThe following arguments will be passed to the program:\n{self.output[0]}\n")
+            Console.print_sep(f"VALIDATION PASSED\nThe following arguments will be passed to '{self.sync.root.handler.app_name}':\n{self.output[0]}", start_sep=False, stop_length=75)
             self.validation_label.state = "Validation Passed!"
             self.validation_label.widget.setToolTip(str(self.output[0]))
             return True
