@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Enum, Str, List_, Dict_
+from subtypes import DateTime, Str, List_, Dict_
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -399,8 +399,8 @@ class DirValidator(Validator):
     dtype, converter = pathmagic.Dir, Dir
 
 
-class Validate(Enum):
-    """An Enum containing a list of all known validators."""
+class Validate:
+    """An class containing all known validators."""
     Int, Float, Bool, Str, List, Dict, DateTime = IntegerValidator, FloatValidator, BoolValidator, StringValidator, ListValidator, DictionaryValidator, DateTimeValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
 

@@ -3,11 +3,10 @@ from __future__ import annotations
 import sys
 from typing import Any, Type, Callable, Collection
 
-from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
 
-from subtypes import AutoEnum
+from subtypes import Enum
 from pathmagic import File, PathLike
 
 from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetFrame, HorizontalFrame, VerticalFrame
@@ -83,13 +82,13 @@ class HtmlGui(Gui):
 
 
 class SystemTrayGui(Gui):
-    class NotificationLevel(AutoEnum):
-        Info, Warning, Critical  # noqa
+    class NotificationLevel(Enum):
+        INFO, WARNING, CRITICAL = "info", "warning", "critical"
 
     notification_mappings = {
-        NotificationLevel.Info: 1,
-        NotificationLevel.Warning: 2,
-        NotificationLevel.Critical: 3
+        NotificationLevel.INFO: 1,
+        NotificationLevel.WARNING: 2,
+        NotificationLevel.CRITICAL: 3
     }
 
     def __init__(self, name: str, hide_option: bool = None) -> None:
@@ -107,7 +106,7 @@ class SystemTrayGui(Gui):
         action.triggered.connect(callback)
         self.menu.addAction(action)
 
-    def notify(self, message: str, level: str = NotificationLevel.Info, duration: int = 2) -> None:
+    def notify(self, message: str, level: SystemTrayGui.NotificationLevel = NotificationLevel.INFO, duration: int = 2) -> None:
         self.widget.showMessage(self.name, message, self.notification_mappings.get(level, 1), duration*1000)
 
     def start(self) -> SystemTrayGui:

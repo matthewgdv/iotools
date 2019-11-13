@@ -5,7 +5,7 @@ import sys
 from typing import Any, Callable, Dict, List, Union
 
 from maybe import Maybe
-from subtypes import Enum, AutoEnum, Frame, Dict_
+from subtypes import Enum, ValueEnum, Frame, Dict_
 from miscutils import lazy_property, is_running_in_ipython
 
 from .widget import WidgetHandler
@@ -18,12 +18,12 @@ from .config import ThisConfig as Config
 # TODO: improve smart runmode logic
 
 
-class RunMode(AutoEnum):
+class RunMode(Enum):
     """An Enum of the various run modes an IOHandler accepts."""
-    SMART, COMMANDLINE, GUI, PROGRAMMATIC  # noqa
+    SMART, COMMANDLINE, GUI, PROGRAMMATIC = "smart", "commandline", "gui", "programmatic"
 
 
-class ArgType(Enum):
+class ArgType(ValueEnum):
     """An Enum of the various argument types an IOHandler understands."""
     STRING, INTEGER, FLOAT, BOOLEAN, LIST, DICT, SET = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator
     PATH, FILE, DIR = PathValidator, FileValidator, DirValidator
@@ -38,7 +38,7 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", run_mode: str = RunMode.SMART, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: RunMode = RunMode.SMART, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
         self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode, callback, subtypes, Maybe(_name).else_("main"), _parent
         self.config = Config() if self.parent is None else self.parent.config
 
@@ -204,21 +204,20 @@ class Argument:
         return self
 
 
-class DependencyMode(AutoEnum):
-    ALL, ANY  # noqa
-
-
 class Dependency:
-    def __init__(self, *args: Argument, argument: Argument = None, mode: str = DependencyMode.ANY) -> None:
+    class Mode(Enum):
+        ALL, ANY = "all", "any"
+
+    def __init__(self, *args: Argument, argument: Argument = None, mode: Dependency.Mode = Mode.ANY) -> None:
         self.argument = argument
         self.arguments = list(args)
 
-        if mode == DependencyMode.ANY:
+        if mode == Dependency.Mode.ANY:
             self.mode = any
-        elif mode == DependencyMode.ALL:
+        elif mode == Dependency.Mode.ALL:
             self.mode = all
         else:
-            DependencyMode.raise_if_not_a_member(mode)
+            Dependency.Mode.raise_if_not_a_member(mode)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(argument={self.argument}, arguments=[{', '.join(arg.name for arg in self.arguments)}], mode={self.mode.__name__})"
