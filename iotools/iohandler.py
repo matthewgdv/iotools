@@ -199,8 +199,8 @@ class Argument:
     def commandline_aliases(self) -> List[str]:
         return [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
 
-    def add(self) -> Argument:
-        IOHandler.stack[-1].add_argument(argument=self)
+    def add(self, handler: IOHandler = None) -> Argument:
+        (IOHandler.stack[-1] if handler is None else handler).add_argument(argument=self)
         return self
 
 
