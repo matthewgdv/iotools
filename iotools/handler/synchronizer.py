@@ -3,11 +3,11 @@ from __future__ import annotations
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 
 from subtypes import Dict_
-from iotools.serializer import LostObject
 
 from .argsgui import ArgsGui, ArgFrame
 from .argparser import ArgParser
 from ..gui.widget import TabPage
+from ..misc.serializer import LostObject
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler
