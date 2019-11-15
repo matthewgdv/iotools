@@ -8,6 +8,7 @@ __all__ = [
     "Gui", "HtmlGui", "ThreePartGui", "SystemTrayGui",
     "Validate",
     "Script",
+    "widget",
 ]
 
 from .misc.console import Console, SysTrayApp
@@ -19,3 +20,4 @@ from .handler.iohandler import IOHandler, Argument, RunMode, ArgType
 from .gui.gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui
 from .misc.validator import Validate
 from .misc.script import Script
+from .gui import widget
