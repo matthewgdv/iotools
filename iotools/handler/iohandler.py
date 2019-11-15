@@ -8,10 +8,10 @@ from maybe import Maybe
 from subtypes import Enum, ValueEnum, Frame, Dict_
 from miscutils import lazy_property, is_running_in_ipython
 
-from .widget import WidgetHandler
-from .validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from .synchronizer import Synchronizer
-from .config import ThisConfig as Config
+from ..gui.widget import WidgetHandler
+from ..misc.validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from ..misc.config import ThisConfig as Config
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments

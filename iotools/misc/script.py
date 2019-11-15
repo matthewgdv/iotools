@@ -12,7 +12,7 @@ from pathmagic import Dir
 from miscutils import Counter, Timer, executed_within_user_tree
 
 from .log import PrintLog
-from .iohandler import RunMode
+from ..handler.iohandler import RunMode
 
 FuncSig = TypeVar("FuncSig", bound=Callable)
 

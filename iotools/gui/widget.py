@@ -12,7 +12,7 @@ from maybe import Maybe
 from subtypes import DateTime, Frame
 from pathmagic import PathLike, Dir
 
-from .validator import Validate, Validator
+from ..misc.validator import Validate, Validator
 
 if TYPE_CHECKING:
     from .gui import Gui

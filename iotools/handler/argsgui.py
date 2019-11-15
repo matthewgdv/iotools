@@ -10,9 +10,9 @@ from subtypes import Dict_
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
-from .gui import ThreePartGui
-from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
-from .console import Console
+from ..gui.gui import ThreePartGui
+from ..gui.widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
+from ..misc.console import Console
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler, Argument

@@ -5,9 +5,9 @@ from typing import Any, List, Dict, Tuple, TYPE_CHECKING
 from subtypes import Dict_
 from iotools.serializer import LostObject
 
-from .widget import TabPage
 from .argsgui import ArgsGui, ArgFrame
 from .argparser import ArgParser
+from ..gui.widget import TabPage
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler
