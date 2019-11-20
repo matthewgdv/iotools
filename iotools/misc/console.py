@@ -100,7 +100,7 @@ class Console:
     @staticmethod
     @contextlib.contextmanager
     def surround_sep(character: str = "-", start_sep: bool = True, stop_sep: bool = False, start_lines: int = 1, stop_lines: int = 1, start_length: int = 150, stop_length: int = 150,
-                     prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n", stop_padding: str = "\n") -> None:
+                     prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n\n", stop_padding: str = "\n") -> None:
         """Context manager that will print separators of the given lines and length on enter and/or exit (based on provided arguments)."""
         br = "\n"
 
@@ -116,7 +116,7 @@ class Console:
 
     @staticmethod
     def print_sep(text: str = None, character: str = "-", start_sep: bool = True, stop_sep: bool = True, start_lines: int = 1, stop_lines: int = 1,
-                  start_length: int = 150, stop_length: int = 150, prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n", stop_padding: str = "\n", **kwargs: Any) -> None:
+                  start_length: int = 150, stop_length: int = 150, prefix: str = "\n", suffix: str = "\n", start_padding: str = "\n\n", stop_padding: str = "\n", **kwargs: Any) -> None:
         """Print the given string with separators of the given lines and length before and/or after (based on provided arguments)."""
         with Console.surround_sep(character=character, start_sep=start_sep, stop_sep=stop_sep, start_lines=start_lines, stop_lines=stop_lines, start_length=start_length, stop_length=stop_length, prefix=prefix, suffix=suffix, start_padding=start_padding, stop_padding=stop_padding):
             if text is not None:
