@@ -100,7 +100,7 @@ class IOHandler:
     def clear_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Clear the output file and/or folder belonging to this IOHandler."""
         if outfile:
-            self.outfile.contents = ""
+            self.outfile.content = ""
 
         if outdir:
             self.outdir.clear()
@@ -124,11 +124,11 @@ class IOHandler:
             RunMode.raise_if_not_a_member(self.run_mode)
 
     def _save_latest_input_config(self, namespace: Dict_) -> None:
-        self._latest.contents = namespace
+        self._latest.content = namespace
 
     def _load_latest_input_config(self) -> Dict[str, Any]:
         if self._latest:
-            return self._latest.contents
+            return self._latest.content
         else:
             print(f"No prior configuration found for '{self.app_name}'")
 

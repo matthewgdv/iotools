@@ -31,7 +31,7 @@ class Config:
 
         self.appdata = Dir.from_appdata(app_name=self.app_name, app_author="pythondata", systemwide=Maybe(systemwide).else_(not executed_within_user_tree()))
         self.file = self.appdata.new_file(name="config", extension="json")
-        self.data: Dict_ = Maybe(self.file.contents).else_(Dict_(self.default or {}))
+        self.data: Dict_ = Maybe(self.file.content).else_(Dict_(self.default or {}))
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -54,7 +54,7 @@ class Config:
         if file.extension != "json":
             raise TypeError(f"Config file to import must be type 'json'.")
 
-        self.data = file.contents
+        self.data = file.content
 
     def export(self, path: PathLike) -> None:
         """Export the config file to the given path."""
@@ -70,7 +70,7 @@ class Config:
 
     def save(self) -> None:
         """Persist the changes to the 'Config.data' attribute to the config file."""
-        self.file.contents = self.data
+        self.file.content = self.data
 
 
 class ThisConfig(Config):

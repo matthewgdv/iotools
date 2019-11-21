@@ -100,7 +100,7 @@ class ScriptMeta(type):
                 self.log.write(traceback.format_exc(), to_console=False)
 
             if self.serialize:
-                self.log.file.new_rename(self.log.file.stem, "pkl").contents = self
+                self.log.file.new_rename(self.log.file.stem, "pkl").content = self
 
             if exception is not None:
                 raise exception

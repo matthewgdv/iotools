@@ -76,7 +76,7 @@ class Serializer:
         self.file.path.write_bytes(self.to_bytes(obj=obj, **kwargs))
 
     def deserialize(self, **kwargs: Any) -> Any:
-        """Deserialize the contents of this serializer's file back into a python object."""
+        """Deserialize the content of this serializer's file back into a python object."""
         try:
             return self.from_bytes(text=self.file.path.read_bytes(), **kwargs)
         except EOFError:

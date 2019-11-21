@@ -15,7 +15,7 @@ class Cache:
     def __init__(self, file: PathLike, days: int = None, hours: int = None, minutes: int = None) -> None:
         self.serializer = Serializer(file)
         self.expiry = None if all([val is None for val in (days, hours, minutes)]) else DateTime.now().delta(days=Maybe(days).else_(0), hours=Maybe(hours).else_(0), minutes=Maybe(minutes).else_(0))
-        self.contents = self._get_contents()
+        self.content = self._get_content()
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -33,7 +33,7 @@ class Cache:
         self.pop(key)
 
     def __contains__(self, name: str) -> bool:
-        return name in self.contents.data
+        return name in self.content.data
 
     def __enter__(self) -> Cache:
         return self
@@ -44,35 +44,35 @@ class Cache:
 
     def get(self, key: str, fallback: Any = None) -> Any:
         """Get a given item from the cache by its key. Returns the fallback (default None) if the key cannot be found."""
-        return self.contents.data.get(key, fallback)
+        return self.content.data.get(key, fallback)
 
     def put(self, key: str, val: Any) -> None:
         """Put an item into the cache with the given key."""
         with self:
-            self.contents.data[key] = val
+            self.content.data[key] = val
 
     def pop(self, key: str, fallback: Any = None) -> Any:
         """Return an item from the cache by its key and simultaneously remove it from the cache. Returns the fallback (default None) if the key cannot be found."""
         with self:
-            return self.contents.data.pop(key, fallback)
+            return self.content.data.pop(key, fallback)
 
     def setdefault(self, key: str, default: Any) -> Any:
         """Return an item from the cache by its key. If the key cannot be found, the default value will be added to the cache under that key, and then returned."""
         with self:
-            return self.contents.data.setdefault(key, default)
+            return self.content.data.setdefault(key, default)
 
     def _save(self) -> None:
-        self.serializer.serialize(self.contents)
+        self.serializer.serialize(self.content)
 
-    def _get_contents(self) -> None:
-        contents = self.serializer.deserialize()
-        if not contents:
-            contents = Cache.Contents(expires_on=self.expiry)
-            self.serializer.serialize(contents)
+    def _get_content(self) -> None:
+        content = self.serializer.deserialize()
+        if not content:
+            content = Cache.Content(expires_on=self.expiry)
+            self.serializer.serialize(content)
 
-        return contents
+        return content
 
-    class Contents:
+    class Content:
         def __init__(self, expires_on: DateTime) -> None:
             self.expiry = expires_on
             self.data: dict = {}

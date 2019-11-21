@@ -61,13 +61,13 @@ class Log:
         """Write the given text this log, optionally appending newlines."""
         if self.active:
             br = "\n"
-            self.file.contents += f"{text}{br*add_newlines}"
+            self.file.content += f"{text}{br*add_newlines}"
 
     def write_delimiter(self, length: int = 200, add_newlines: int = 2) -> None:
         """Write a delimiter of hyphens to this log, optionally appending newlines."""
         if self.active:
             br = "\n"
-            self.file.contents += f"{'-'*length}{br*add_newlines}"
+            self.file.content += f"{'-'*length}{br*add_newlines}"
 
     def start(self) -> None:
         """Start this log's file using the default application for this type of file."""
@@ -75,7 +75,7 @@ class Log:
 
     def _initialize(self) -> None:
         self.file = File(self._path)
-        self.file.append(f"{'-' * 200}\n" if self.file.contents else "")
+        self.file.append(f"{'-' * 200}\n" if self.file.content else "")
         self.file.append(f"-- Process run by user: {self.user} at: {DateTime.now()}\n\n")
         self._initialized = True
 
