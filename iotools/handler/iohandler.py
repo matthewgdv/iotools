@@ -113,7 +113,6 @@ class IOHandler:
         elif self.run_mode == RunMode.PROGRAMMATIC:
             return self.sync.run_programatically
         elif self.run_mode == RunMode.SMART:
-            breakpoint()
             if is_running_in_ipython():
                 return self.sync.run_programatically
             else:
