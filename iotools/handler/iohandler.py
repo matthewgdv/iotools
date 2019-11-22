@@ -76,9 +76,9 @@ class IOHandler:
 
         self.arguments[argument.name] = argument
 
-    def add_subcommand(self, name: str) -> IOHandler:
+    def add_subcommand(self, name: str, callback: Callable = None) -> IOHandler:
         """Add a new subcommand to this IOHandler, which is itself an IOHandler. The subcommand will process its own set of arguments when the given verb is used."""
-        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, run_mode=self.run_mode, _name=name, _parent=self)
+        subcommand = IOHandler(app_name=self.app_name, app_desc=self.app_desc, run_mode=self.run_mode, callback=callback, _name=name, _parent=self)
         self.subcommands[name] = subcommand
         return subcommand
 
@@ -87,8 +87,8 @@ class IOHandler:
         self.sync = Synchronizer(root_handler=self)
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
-        self._save_latest_input_config(namespace=namespace)
-        return namespace if handler.callback is None else handler.callback(namespace)
+        handler._save_latest_input_config(namespace=namespace)
+        return CallableDict(dictionary=namespace, callback=None if handler.callback is None else handler.callback)
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Show the output file and/or folder belonging to this IOHandler."""
@@ -113,6 +113,7 @@ class IOHandler:
         elif self.run_mode == RunMode.PROGRAMMATIC:
             return self.sync.run_programatically
         elif self.run_mode == RunMode.SMART:
+            breakpoint()
             if is_running_in_ipython():
                 return self.sync.run_programatically
             else:
@@ -130,7 +131,7 @@ class IOHandler:
         if self._latest:
             return self._latest.content
         else:
-            print(f"No prior configuration found for '{self.app_name}'")
+            print(f"No prior configuration found for '{self.name}'")
 
     def _determine_shortform_alias(self, name: str) -> str:
         for char in name:
@@ -255,3 +256,15 @@ class Nullability:
 
     def __bool__(self) -> bool:
         return self.truth if self.argument.dependency is None else True
+
+
+class CallableDict(Dict_):
+    settings = Dict_.settings.deepcopy()
+    settings.recursive = False
+
+    def __init__(self, dictionary: Dict_, callback: Callable = None) -> None:
+        super().__init__(dictionary)
+        self._callback_ = callback
+
+    def __call__(self) -> Any:
+        return self if self._callback_ is None else self._callback_(self)
