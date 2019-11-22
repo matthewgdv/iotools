@@ -31,7 +31,7 @@ class ArgsGui(ThreePartGui):
         self.populate_main_segment(values=values, handler=handler)
         self.populate_bottom_segment()
 
-        Console.print_sep("", start_lines=2, prefix="", suffix="", end="", stop_sep=False)
+        Console.print_sep("", start_lines=2, start_padding="\n", prefix="", suffix="", end="", stop_sep=False)
 
     def populate_top_segment(self) -> None:
         """Add widget(s) to the title segment."""
