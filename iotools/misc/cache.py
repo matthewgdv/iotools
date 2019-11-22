@@ -65,7 +65,11 @@ class Cache:
         self.serializer.serialize(self.content)
 
     def _get_content(self) -> None:
-        content = self.serializer.deserialize()
+        try:
+            content = self.serializer.deserialize()
+        except Exception:
+            content = None
+
         if not content:
             content = Cache.Content(expires_on=self.expiry)
             self.serializer.serialize(content)

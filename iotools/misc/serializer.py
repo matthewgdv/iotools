@@ -15,7 +15,7 @@ import dill
 from subtypes import Singleton
 from miscutils import lazy_property
 
-from .config import ThisConfig as Config
+from .config import IoToolsConfig as Config
 
 
 class Lost(Singleton):

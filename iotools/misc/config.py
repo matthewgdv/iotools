@@ -73,5 +73,5 @@ class Config:
         self.file.content = self.data
 
 
-class ThisConfig(Config):
-    name = iotools.__name__
+class IoToolsConfig(Config):
+    app_name = iotools.__name__
