@@ -16,21 +16,23 @@ class Config:
     The directory itself can be accessed through the 'Config.appdata' attribute.
     The data held by the config file can be accessed through 'Config.data' attribute, holding a special kind of dictionary that allows its items to be accessed through attribute access.
     Any changes made to this dictionary will not be persisted until Config.save() is called. Config.save() is automatically called upon exiting when this class is used as a context manager.
-    This class is intended to be subclassed and can be used simply by providing the 'Config.app_name' (string) and 'Config.default' (dict) class attributes.
+    This class is intended to be subclassed and can be used simply by providing the 'Config.name' (string) and 'Config.default' (dict) class attributes.
     Alternatively, this class can be used directly and these can be provided as constructor arguments instead.
     """
-    app_name: str = None
+    name: str = None
     default: dict = None
+    systemwide: bool = None
 
-    def __init__(self, app_name: str = None, default: dict = None, systemwide: bool = None) -> None:
-        if app_name is not None:
-            self.app_name = app_name
+    def __init__(self, name: str = None, default: dict = None, systemwide: bool = None, parent: Config = None) -> None:
+        self.name, self.default, self.systemwide = name or self.name, default or self.default, systemwide or self.systemwide
+        self.parent = parent
 
-        if default is not None:
-            self.default = default
+        if self.parent is None:
+            self.root = self.folder = Dir.from_appdata(app_name=self.name, app_author="pythondata", systemwide=Maybe(self.systemwide).else_(not executed_within_user_tree()))
+        else:
+            self.root, self.folder = parent.root, parent.folder.new_dir(self.name)
 
-        self.appdata = Dir.from_appdata(app_name=self.app_name, app_author="pythondata", systemwide=Maybe(systemwide).else_(not executed_within_user_tree()))
-        self.file = self.appdata.new_file(name="config", extension="json")
+        self.file = self.folder.new_file(name="config", extension="json")
         self.data: Dict_ = Maybe(self.file.content).else_(Dict_(self.default or {}))
 
     def __repr__(self) -> str:
@@ -74,4 +76,4 @@ class Config:
 
 
 class IoToolsConfig(Config):
-    app_name = iotools.__name__
+    name = iotools.__name__
