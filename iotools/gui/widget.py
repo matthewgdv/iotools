@@ -19,6 +19,8 @@ if TYPE_CHECKING:
     assert Gui
 
 # TODO: Add email selector WidgetHandler
+# TODO: Add abilityto expand Table widgets selector WidgetHandler
+# TODO: Add int entry widget
 
 
 class TemporarilyDisconnect:
