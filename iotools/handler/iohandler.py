@@ -49,7 +49,7 @@ class IOHandler:
         self._remaining_letters = set(string.ascii_lowercase)
         self._remaining_letters.discard("h")
 
-        self._root = (self.config.appdata.new_dir(self.app_name) if self.parent is None else self.parent._root).new_dir(self.name)
+        self._root = (self.config.folder.new_dir(self.app_name) if self.parent is None else self.parent._root).new_dir(self.name)
         self._dir = self._root.new_dir("__io__")
         self.outfile, self.outdir, self._latest = self._dir.new_file("output", "txt"), self._dir.new_dir("output"), self._dir.new_file("latest", "pkl")
 
