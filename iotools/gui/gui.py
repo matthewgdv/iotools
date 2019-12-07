@@ -24,7 +24,7 @@ class Gui(QtWidgets.QMainWindow):
 
     def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, on_close: Callable = None):
         super().__init__()
-        self.name, self.on_close = name, on_close
+        self.name, self.on_close = name, on_close or self.end
 
         self.central = central_widget_class()
         self.central.widget.setParent(self)
@@ -65,6 +65,9 @@ class ThreePartGui(Gui):
         super().__init__(name=name, on_close=on_close)
         with self:
             self.top, self.main, self.bottom = HorizontalFrame(margins=0).stack(), VerticalFrame(margins=0).stack(), HorizontalFrame(margins=0).stack()
+
+            vertical_fixed = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+            self.top.widget.setSizePolicy(vertical_fixed), self.bottom.widget.setSizePolicy(vertical_fixed)
 
     def start(self) -> ThreePartGui:
         self.main.make_scrollable()

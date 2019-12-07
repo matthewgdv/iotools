@@ -11,7 +11,7 @@ from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
 from ..gui.gui import ThreePartGui
-from ..gui.widget import WidgetHandler, Button, Label, DropDown, CheckBar, Entry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
+from ..gui.widget import WidgetHandler, Button, Label, DropDown, CheckBar, IntEntry, FloatEntry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
 from ..misc.console import Console
 
 if TYPE_CHECKING:
@@ -122,26 +122,28 @@ class ArgFrame(WidgetHandler):
         dtype = arg.argtype.dtype
 
         if arg.choices is not None:
-            return cls(argument=arg, handler=DropDown(choices=arg.choices, state=arg.default))
+            return cls(argument=arg, handler=DropDown(choices=arg.choices, state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, dict) and arg.argtype._default_generic_type == (str, bool):
-            return cls(argument=arg, handler=CheckBar(choices=arg.default))
+            return cls(argument=arg, handler=CheckBar(choices=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, bool):
-            return cls(argument=arg, handler=Button(state=Maybe(arg.default).else_(False)))
-        elif issubclass_safe(dtype, int) or issubclass_safe(dtype, float):
-            return cls(argument=arg, handler=Entry(state=arg.default))
+            return cls(argument=arg, handler=Button(state=Maybe(arg.default).else_(False), **arg.widget_kwargs))
+        elif issubclass_safe(dtype, int):
+            return cls(argument=arg, handler=IntEntry(state=arg.default, **arg.widget_kwargs))
+        elif issubclass_safe(dtype, float):
+            return cls(argument=arg, handler=FloatEntry(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, File):
-            return cls(argument=arg, handler=FileSelect(state=arg.default))
+            return cls(argument=arg, handler=FileSelect(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, Dir):
-            return cls(argument=arg, handler=DirSelect(state=arg.default))
+            return cls(argument=arg, handler=DirSelect(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, dt.date):
-            return cls(argument=arg, handler=DateTimeEdit(state=arg.default, magnitude=arg.magnitude) if arg.magnitude else Calendar(state=arg.default))
+            return cls(argument=arg, handler=DateTimeEdit(state=arg.default, magnitude=arg.magnitude, **arg.widget_kwargs) if arg.magnitude else Calendar(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, str) or dtype is None:
-            return cls(argument=arg, handler=Text(state=arg.default, magnitude=arg.magnitude))
+            return cls(argument=arg, handler=Text(state=arg.default, magnitude=arg.magnitude, **arg.widget_kwargs))
         elif issubclass_safe(dtype, pd.DataFrame):
-            return cls(argument=arg, handler=Table(state=arg.default))
+            return cls(argument=arg, handler=Table(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, list):
-            return cls(argument=arg, handler=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype))
+            return cls(argument=arg, handler=ListTable(state=arg.default, val_dtype=arg.argtype.val_dtype, **arg.widget_kwargs))
         elif issubclass_safe(dtype, dict):
-            return cls(argument=arg, handler=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype))
+            return cls(argument=arg, handler=DictTable(state=arg.default, key_dtype=arg.argtype.key_dtype, val_dtype=arg.argtype.val_dtype, **arg.widget_kwargs))
         else:
             raise TypeError(f"Don't know how to handle type: '{arg.argtype}'.")

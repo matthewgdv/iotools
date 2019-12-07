@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 # TODO: Add email selector WidgetHandler
 # TODO: Add abilityto expand Table widgets selector WidgetHandler
-# TODO: Add int entry widget
 
 
 class TemporarilyDisconnect:
@@ -101,32 +100,45 @@ class WidgetHandler:
         return self.widget.setToolTip(val)
 
     @property
-    def parent(self) -> Any:
+    def parent(self) -> WidgetHandler:
         """A property controlling the parent of the widget. When set, both objects acquire references to one another, and the child attaches to the parent graphically."""
         return self._parent
 
     @parent.setter
-    def parent(self, val: Any) -> None:
-        if self.parent is not None and self in self.parent.children:
-            self.parent.children.remove(self)
-
-        self._parent = val
-        val.children.append(self)
-
-        self.widget.setParent(self.parent.widget)
-        self.parent.layout.addWidget(self.widget)
+    def parent(self, parent: WidgetHandler) -> None:
+        self.set_parent(parent)
 
     def stack(self) -> WidgetHandler:
         """Stack this widget onto the last widget or gui element within context (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
         from .gui import Gui
-        self.parent = Gui.stack[-1]
+        self.set_parent(Gui.stack[-1])
         return self
 
-    def grid(self, ) -> WidgetHandler:
-        """Stack this widget onto the last widget or gui element within context (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
+    def grid(self, x: int, y: int) -> WidgetHandler:
+        """Insert this widget into the last widget or gui element within context at the given coordinates (setting it to be this object's parent). If there are none in scope, this will raise IndexError."""
         from .gui import Gui
-        self.parent = Gui.stack[-1]
+        self.set_parent(parent=Gui.stack[-1], coordinates=(x, y))
         return self
+
+    def set_parent(self, parent: WidgetHandler, coordinates: Tuple[int, int] = None) -> None:
+        self._set_parent_handler(parent=parent)
+        self._set_parent_widget(parent=parent, coordinates=coordinates)
+
+    def _set_parent_handler(self, parent: WidgetHandler) -> None:
+        if self.parent is not None and self in self.parent.children:
+            self.parent.children.remove(self)
+
+        self._parent = parent
+        parent.children.append(self)
+
+    def _set_parent_widget(self, parent: WidgetHandler, coordinates: Tuple[int, int] = None) -> None:
+        self.widget.setParent(self.parent.widget)
+
+        if coordinates is None:
+            self.parent.layout.addWidget(self.widget)
+        else:
+            x, y = coordinates
+            self.parent.layout.addWidget(self.widget, x, y)
 
 
 class WidgetFrame(WidgetHandler):
@@ -323,17 +335,47 @@ class Entry(WidgetHandler):
     def __init__(self, state: str = None) -> None:
         super().__init__()
         self.widget = QtWidgets.QLineEdit()
-        self.get_state, self.set_state = self.widget.text, self.widget.setText
-
         self.state = state
 
     @property
     def state(self) -> Any:
-        return self.get_state()
+        return self.widget.text()
 
     @state.setter
     def state(self, val: Any) -> None:
-        self.set_state(str(Maybe(val).else_("")))
+        self.widget.setText(str(Maybe(val).else_("")))
+
+
+class NumericEntry(WidgetHandler):
+    """An abstract manager class for a simple numeric SpinBox widget which directs the user to enter a numeral."""
+    widget_constructor = None
+
+    def __init__(self, state: str = None, step: int = 1, minimum: int = None, maximum: int = None, prefix: str = None, suffix: str = None) -> None:
+        super().__init__()
+        self.widget = self.widget_constructor()
+        self.widget.setSingleStep(step)
+
+        for argument, callback in [(minimum, self.widget.setMinimum), (maximum, self.widget.setMaximum), (prefix, self.widget.setPrefix), (suffix, self.widget.setSuffix)]:
+            if argument is not None:
+                callback(argument)
+
+        @property
+        def state(self) -> Union[int, float]:
+            return self.widget.value()
+
+        @state.setter
+        def state(self, val: Any) -> None:
+            self.widget.setValue(Maybe(val).else_(0))
+
+
+class IntEntry(NumericEntry):
+    """A manager class for a simple integer-accepting SpinBox widget which directs the user to enter an integer."""
+    widget_constructor = QtWidgets.QSpinBox
+
+
+class FloatEntry(NumericEntry):
+    """A manager class for a simple float-accepting SpinBox widget which directs the user to enter a float."""
+    widget_constructor = QtWidgets.QDoubleSpinBox
 
 
 class Text(WidgetHandler):
@@ -361,7 +403,7 @@ class Text(WidgetHandler):
 
 
 class PathSelect(HorizontalFrame):
-    """An abstract manager class for a simple PathSelect widget which direct the user to browse for a path."""
+    """An abstract manager class for a simple PathSelect widget which directs the user to browse for a path."""
     path_method: Any = None
     prompt: str = None
 
@@ -395,17 +437,17 @@ class PathSelect(HorizontalFrame):
 
 
 class FileSelect(PathSelect):
-    """A manager class for a simple FileSelect widget which direct the user to browse for a file."""
+    """A manager class for a simple FileSelect widget which directs the user to browse for a file."""
     path_method, prompt = staticmethod(QtWidgets.QFileDialog.getOpenFileName), "Select File"
 
 
 class DirSelect(PathSelect):
-    """A manager class for a simple DirSelect widget which direct the user to browse for a folder."""
+    """A manager class for a simple DirSelect widget which directs the user to browse for a folder."""
     path_method, prompt = staticmethod(QtWidgets.QFileDialog.getExistingDirectory), "Select Dir"
 
 
 class Calendar(WidgetHandler):
-    """A manager class for a simple Calendar widget which direct the user to select a date."""
+    """A manager class for a simple Calendar widget which directs the user to select a date."""
 
     def __init__(self, state: Union[DateTime, dt.date] = None) -> None:
         super().__init__()

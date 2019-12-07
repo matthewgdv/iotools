@@ -29,8 +29,7 @@ class ArgParser(argparse.ArgumentParser):
 
     def format_help(self) -> str:
         target_cols = ["name", "commandline_aliases", "argtype", "default", "nullable", "info", "choices", "conditions", "dependency"]
-        frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()])
-        frame = frame.fillna_as_none()
+        frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()]).fillna_as_none()
 
         frame.argtype = frame.argtype.apply(lambda val: str(val))
         frame.commandline_aliases = frame.commandline_aliases.apply(lambda val: ", ".join([str(alias) for alias in val]))

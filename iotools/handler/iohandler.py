@@ -149,8 +149,8 @@ class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
     def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, required: bool = None, dependency: Union[Argument, Dependency] = None,
-                 choices: Union[Enum, List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None) -> None:
-        self.name, self.default, self.magnitude, self.info, self._value = name, default, magnitude, info, default
+                 choices: Union[Enum, List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None, widget_kwargs: dict = None) -> None:
+        self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
         self.widget: WidgetHandler = None
         self._aliases: List[str] = None
