@@ -32,7 +32,7 @@ class Synchronizer:
         return self.root.get_active_child()
 
     def run_programatically(self, values: Dict_, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
-        node = self.handler_mappings[handler] if handler is not None else self.root
+        node = self.handler_mappings[self.determine_chosen_handler(handler)] if handler is not None else self.root
         if values:
             node.set_values_from_namespace_ascending(namespace=values)
 
@@ -40,7 +40,7 @@ class Synchronizer:
         return node.get_namespace_ascending(), node.handler
 
     def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
-        return ArgsGui(sync=self, values=values, handler=handler).start().output
+        return ArgsGui(sync=self, values=values, handler=self.determine_chosen_handler(handler)).start().output
 
     def run_from_commandline(self, args: List[str] = None, values: Dict_ = None, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
         self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)
@@ -74,6 +74,26 @@ class Synchronizer:
 
     def set_widgets_from_namespace_recursively(self, namespace: Dict_) -> None:
         self.root.set_widgets_from_namespace_recursively(namespace=namespace)
+
+    def determine_chosen_handler(self, handler: Any) -> IOHandler:
+        if handler is None:
+            return None
+
+        from .iohandler import IOHandler
+
+        if isinstance(handler, IOHandler):
+            return handler
+        elif isinstance(handler, str):
+            return self.root.handler.subcommands[handler]
+        elif isinstance(handler, list):
+            node = self.root.handler
+
+            for step in handler:
+                node = node.subcommands[step]
+
+            return node
+        else:
+            return None
 
 
 class Node:
