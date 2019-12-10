@@ -53,7 +53,7 @@ class ScriptProfiler:
 
     @property
     def prefix(self) -> str:
-        return f"{DateTime.now().logformat()} - {'    '*int(Maybe(self.stack).else_(0))}"
+        return f"{DateTime.now().to_logformat()} - {'    '*int(Maybe(self.stack).else_(0))}"
 
 
 class ScriptMeta(type):
@@ -86,7 +86,7 @@ class ScriptMeta(type):
 
             now = DateTime.now()
             logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).new_dir("Python").new_dir("logs")
-            log_path = logs_dir.new_dir(now.isoformat_date()).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
+            log_path = logs_dir.new_dir(now.to_isoformat_date()).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
             self.log = PrintLog(log_path)
 
             self._profiler.log = self.log
