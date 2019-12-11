@@ -83,9 +83,8 @@ class Log:
     def from_details(cls, log_name: str, file_extension: str = "txt", log_dir: PathLike = None, active: bool = True) -> Log:
         """Create a new Log from the given arguments."""
         default_log_dir = Dir.from_home().d.documents.new_dir("Python").new_dir("logs")
-        today = DateTime.now().isoformat_date(dashes=False)
         logdir = Dir.from_pathlike(Maybe(log_dir).else_(default_log_dir))
-        path = fR"{logdir}{os.sep}{log_name}Log{today}{file_extension if file_extension.startswith('.') else f'.{file_extension}'}"
+        path = fR"{logdir}{os.sep}{log_name}Log{DateTime.now().to_logformat()}{file_extension if file_extension.startswith('.') else f'.{file_extension}'}"
 
         return cls(path, active=active)
 
