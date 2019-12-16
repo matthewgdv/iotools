@@ -350,7 +350,7 @@ class NumericEntry(WidgetHandler):
     """An abstract manager class for a simple numeric SpinBox widget which directs the user to enter a numeral."""
     widget_constructor = None
 
-    def __init__(self, state: str = None, step: int = 1, minimum: int = None, maximum: int = None, prefix: str = None, suffix: str = None) -> None:
+    def __init__(self, state: str = None, step: int = 1, minimum: int = -2**30, maximum: int = 2**30, prefix: str = None, suffix: str = None) -> None:
         super().__init__()
         self.widget = self.widget_constructor()
         self.widget.setSingleStep(step)
@@ -359,13 +359,13 @@ class NumericEntry(WidgetHandler):
             if argument is not None:
                 callback(argument)
 
-        @property
-        def state(self) -> Union[int, float]:
-            return self.widget.value()
+    @property
+    def state(self) -> Union[int, float]:
+        return self.widget.value()
 
-        @state.setter
-        def state(self, val: Any) -> None:
-            self.widget.setValue(Maybe(val).else_(0))
+    @state.setter
+    def state(self, val: Any) -> None:
+        self.widget.setValue(Maybe(val).else_(0))
 
 
 class IntEntry(NumericEntry):
