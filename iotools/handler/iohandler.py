@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import string
 import sys
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, List, Union, Optional
 
 from maybe import Maybe
 from subtypes import Enum, ValueEnum, Frame, Dict_
-from miscutils import lazy_property, is_running_in_ipython
+from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
 from ..gui.widget import WidgetHandler
@@ -44,7 +44,7 @@ class IOHandler:
 
         self.arguments: Dict[str, Argument] = {}
         self.subcommands: Dict[str, IOHandler] = {}
-        self.sync: Synchronizer = None
+        self.sync: Optional[Synchronizer] = None
 
         self._remaining_letters = set(string.ascii_lowercase)
         self._remaining_letters.discard("h")
@@ -152,8 +152,8 @@ class Argument:
                  choices: Union[Enum, List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None, widget_kwargs: dict = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
-        self.widget: WidgetHandler = None
-        self._aliases: List[str] = None
+        self.widget: Optional[WidgetHandler] = None
+        self._aliases: Optional[List[str]] = None
 
         self.aliases = aliases
 
@@ -195,7 +195,7 @@ class Argument:
     def aliases(self, val: List[str]) -> None:
         self._aliases = [self.name] if val is None else sorted({self.name, *val}, key=len)
 
-    @lazy_property
+    @cached_property
     def commandline_aliases(self) -> List[str]:
         return [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
 

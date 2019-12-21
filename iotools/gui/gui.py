@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Type, Callable, Collection
+import types
+from typing import Any, Type, Callable, Collection, cast
 
 from PyQt5 import QtWidgets
 from PyQt5 import QtGui
@@ -13,6 +14,8 @@ from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetFrame, Horizo
 from iotools import res
 
 # TODO: Add extra features to Gui (such as menu bar, toolbars, status bar, etc.)
+
+res = cast(types.ModuleType, res)
 
 
 class Gui(QtWidgets.QMainWindow):
@@ -109,6 +112,8 @@ class SystemTrayGui(Gui):
         action.triggered.connect(callback)
         self.menu.addAction(action)
 
+        return self
+
     def notify(self, message: str, level: SystemTrayGui.NotificationLevel = NotificationLevel.INFO, duration: int = 2) -> None:
         self.widget.showMessage(self.name, message, self.notification_mappings.get(level, 1), duration*1000)
 
@@ -138,7 +143,7 @@ class SystemTrayGui(Gui):
 
     @classmethod
     def create(cls, name: str) -> SystemTrayGui:
-        cls(name=name).start()
+        return cls(name=name).start()
 
 
 class ProgressBarGui(Gui):

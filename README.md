@@ -11,6 +11,7 @@ Provides several utilities for handling I/O:
 
 The `IOHandler` class
 --------------------
+
 * Api similar to `argparse.ArgumentParser()`. Must be used as a context manager, and while in scope the `Argument.add()` method will act equivalent to `ArgumentParser.add_argument()`.
 * `IOHandler.process()` (equivalent to `ArgumentParser.parse_args()`) returns a `subtypes.Dict_` holding the argument values if no callback is provided to the `IOHandler()`
   constructor, otherwise it passes on the return value of the callback function, which will be passed a `Dict_` as its single positional argument.
@@ -27,6 +28,7 @@ The `IOHandler` class
 
 The `Argument` class
 --------------------
+
 * The `Argument()` constructor arguments tell the IOHandler how to handle nullability, default values, implicit coercion to the right type, whether the argument is optional,
   commandline aliases, conditions, dependencies, etc.
 * An `ArgType` `Enum` is provided to be passed to the `Argument(argtype=)` constructor argument. This will let the `IOHandler` perform type checking and coercion. Currently the
@@ -51,6 +53,7 @@ The `Argument` class
 
 The `Validate` class
 --------------------
+
 * An accessor class granting access to several Validator classes through attribute access.
 * Currently supports type checking and implicit coercion of the input value to the following supported types (`int`, `float`, `bool`, `str`, `list`, `set`, `dict`,
   `subtypes.DateTime`, `pathlib.Path`, `pathmagic.File`, `pathmagic.Dir`)
@@ -59,6 +62,7 @@ The `Validate` class
 
 The `Validator` classes
 --------------------
+
 * Currently there are `IntegerValidator`, `FloatValidator`, `BoolValidator`, `StringValidator`, `ListValidator`, `SetValidator`, `DictionaryValidator`, `DateTimeValidator`,
   `PathValidator`, `FileValidator`, `DirValidator`
 * Some of these validators are implemented as a wrapper over typepy, but the api is different.
@@ -70,6 +74,7 @@ The `Validator` classes
 
 The `Gui` class and its various template subclasses
 --------------------
+
 * Gui class and several template subclasses that can be used alongside the various `WidgetManager` objects to easily set up a GUI, with the exact internals of the
   underlying QT classes abstracted away behind a consistent API. Makes it very quick and easy to set up a simple GUI. Is a thin wrapper around PyQt5.
 * `ThreePartGui` class for quickly setting up Horizontal-Vertical-Horizontal guis
@@ -77,12 +82,14 @@ The `Gui` class and its various template subclasses
 
 The `WidgetManager` class and its various widget subclasses
 --------------------
+
 * Currently supports the following widgets: `Label`, `Button`, `Checkbox`, `CheckBar`, `DropDown`, `Entry`, `Text`, `FileSelect`, `DirSelect`, `Calendar`, `DateTimeEdit`,
   `HtmlDisplay`, `ProgressBar`, `Table`, `ListTable`, `DictTable`, `WidgetFrame`, `HorizontalFrame`, `VerticalFrame`
 * Have a consistent API primarily using the properties `WidgetManager.active`, `WidgetManager.state`, `WidgetManager.text`, and `WidgetManager.parent`.
 
 The `Console` class
 --------------------
+
 * Offer choices inveractively on the console, allowing navigation using arrow keys
 * Supports multi-select
 * Offer YES/NO
@@ -91,6 +98,7 @@ The `Console` class
 
 The `Script` class
 --------------------
+
 * Uses a metaclass that wraps every method and the methods of inner classes (recursively) in a profiler, showing duration, arguments, and return value of each method call,
   and a `repr()` of the script object
 * Writes this profiling information and `print()` statements to a log file
@@ -101,16 +109,19 @@ The `Script` class
 
 The `Cache` class
 --------------------
+
 * Serializes any python object that can be pickled by Dill into a file
 * Interface similar to a `dict` for interacting with the items in the cache: `Cache.put()`, `Cache.get()`, `Cache.pop()`, and `Cache.setdefault()`
 
 The `Serializer` class
 --------------------
+
 * Serialize/deserialize any object that is pickleable by Dill
 * Discard unpickleable attributes recursively and replace them with `LostObject` instances
 
 The `Secrets` class
 --------------------
+
 * Serialize, then encrypt any python object and write it to a file and vice-versa.
 * Encryption key must be set before first use. It will be persisted to a json config file at an os-appropriate appdir.
 

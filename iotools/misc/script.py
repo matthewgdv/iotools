@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import functools
 import traceback
-from typing import Dict, Any, Type, cast, TypeVar, Callable
+from typing import Dict, Any, cast, TypeVar, Callable
 import inspect
 import os
 
@@ -59,27 +59,23 @@ class ScriptProfiler:
 class ScriptMeta(type):
     """The metaclass driving the Script class' magic behaviour."""
 
-    def __new__(mcs, name: str, bases: Any, namespace: dict) -> Type[Script]:
-        def recursively_wrap(cls: Script, profiler: ScriptProfiler) -> None:
-            for name, val in vars(cls).items():
-                if inspect.isfunction(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
-                    setattr(cls, name, profiler(val))
-
-                elif inspect.isclass(val):
-                    recursively_wrap(cls=val, profiler=profiler)
-
-        cls: Type[Script] = type.__new__(mcs, name, bases, namespace)
-
-        if not name == "Script":
+    def __init__(cls, name: str, bases: Any, namespace: dict) -> None:
+        if not bases:
             profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
-            recursively_wrap(cls=cls, profiler=profiler)
-            cls.__init__ = mcs.constructor_wrapper(cls.__init__)
+            cls.recursively_wrap(item=cls, profiler=profiler)
+            cls.__init__ = cls.constructor_wrapper(cls.__init__)
 
             cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
 
-        return cls
+    def recursively_wrap(cls, item: ScriptMeta, profiler: ScriptProfiler) -> None:
+        for name, val in vars(item).items():
+            if inspect.isfunction(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
+                setattr(item, name, profiler(val))
 
-    def constructor_wrapper(func: FuncSig) -> FuncSig:
+            elif inspect.isclass(val):
+                cls.recursively_wrap(item=val, profiler=profiler)
+
+    def constructor_wrapper(cls, func: FuncSig) -> FuncSig:
         @functools.wraps(func)
         def wrapper(self: Script, **arguments: Any) -> None:
             self.arguments = arguments

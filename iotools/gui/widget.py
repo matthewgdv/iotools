@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime as dt
 import os
-from typing import Any, Callable, Dict, List, Tuple, Union, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Tuple, Union, TYPE_CHECKING, Type, Optional
 import itertools
 
 from PyQt5 import QtCore
@@ -45,7 +45,10 @@ class WidgetHandler:
     """An abstract widget manager class for concrete widgets to inherit from which guarantees a consistent interface for handling widgets, abstracting away the PyQt5 internals."""
 
     def __init__(self) -> None:
-        self.widget = self.get_state = self.set_state = self.get_text = self.set_text = None  # type: Any
+        self.widget: Optional[QtWidgets.QWidget] = None
+        self.layout: Optional[QtWidgets.QLayout] = None
+        self.get_state = self.set_state = self.get_text = self.set_text = None  # type: Optional[Callable]
+
         self.children: List[WidgetHandler] = []
         self._parent: Any = None
 
@@ -131,6 +134,7 @@ class WidgetHandler:
         self._parent = parent
         parent.children.append(self)
 
+    # noinspection PyArgumentList
     def _set_parent_widget(self, parent: WidgetHandler, coordinates: Tuple[int, int] = None) -> None:
         self.widget.setParent(self.parent.widget)
 
@@ -288,7 +292,7 @@ class Checkbox(WidgetHandler):
 class CheckBar(HorizontalFrame):
     """A manager class for a list of Checkbox widgets placed into a single widget."""
 
-    def __init__(self, choices: Dict[str, bool] = None) -> None:
+    def __init__(self, choices: Dict[str, bool] = None, **kwargs: Any) -> None:
         super().__init__(margins=0)
 
         self.checkboxes = [Checkbox(state=state, text=text) for text, state in choices.items()]
@@ -311,7 +315,7 @@ class CheckBar(HorizontalFrame):
 class DropDown(WidgetHandler):
     """A manager class for a simple DropDown widget which can display several options."""
 
-    def __init__(self, choices: List[str] = None, state: str = None) -> None:
+    def __init__(self, choices: List[str] = None, state: str = None, **kwargs: Any) -> None:
         super().__init__()
         self.widget = QtWidgets.QComboBox()
         self.get_state, self.set_state = self.widget.currentText, self.widget.setCurrentText
@@ -381,7 +385,7 @@ class FloatEntry(NumericEntry):
 class Text(WidgetHandler):
     """A manager class for a simple text Text widget which can capture text and has editor-like features."""
 
-    def __init__(self, state: str = None, magnitude: int = 3) -> None:
+    def __init__(self, state: str = None, magnitude: int = 3, **kwargs: Any) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QTextEdit()
@@ -449,7 +453,7 @@ class DirSelect(PathSelect):
 class Calendar(WidgetHandler):
     """A manager class for a simple Calendar widget which directs the user to select a date."""
 
-    def __init__(self, state: Union[DateTime, dt.date] = None) -> None:
+    def __init__(self, state: Union[DateTime, dt.date] = None, **kwargs: Any) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QCalendarWidget()
@@ -471,7 +475,7 @@ class Calendar(WidgetHandler):
 class DateTimeEdit(WidgetHandler):
     """A manager class for a simple DateTimeEdit widget which direct the user to enter a datetime at a level of precision indicated by the magnitude argument."""
 
-    def __init__(self, state: Union[DateTime, dt.date] = None, magnitude: int = 2) -> None:
+    def __init__(self, state: Union[DateTime, dt.date] = None, magnitude: int = 2, **kwargs: Any) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QDateTimeEdit()
@@ -522,7 +526,7 @@ class ProgressBar(WidgetHandler):
 class TabPage(WidgetHandler):
     """A manager class for a simple tabbed page widget which can display multiple frames that can be switched between."""
 
-    def __init__(self, page_names: List[str] = None, state: str = None, page_constructor: WidgetHandler = VerticalFrame):
+    def __init__(self, page_names: List[str] = None, state: str = None, page_constructor: Type[WidgetFrame] = VerticalFrame):
         super().__init__()
 
         self.widget, self.page_constructor = QtWidgets.QTabWidget(), page_constructor
@@ -534,7 +538,7 @@ class TabPage(WidgetHandler):
         if state is not None:
             self.state = state
 
-    def __getitem__(self, key: str) -> QtWidgets.QWidget:
+    def __getitem__(self, key: str) -> WidgetHandler:
         return self.pages[key]
 
     def __setitem__(self, name: str, val: WidgetFrame) -> None:
@@ -544,7 +548,7 @@ class TabPage(WidgetHandler):
         val._parent = self
         self.children.append(val)
 
-    def __getattr__(self, name: str) -> WidgetFrame:
+    def __getattr__(self, name: str) -> WidgetHandler:
         if name in self.pages:
             return self.pages[name]
         else:
@@ -563,7 +567,7 @@ class Table(WidgetHandler):
     """A manager class for a simple Table widget which can prompt the user to fill out a table."""
     TableItem = QtWidgets.QTableWidgetItem
 
-    def __init__(self, state: Frame = None) -> None:
+    def __init__(self, state: Frame = None, **kwargs: Any) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QTableWidget()
@@ -663,7 +667,7 @@ class GenericTable(VerticalFrame):
 class ListTable(GenericTable):
     """A manager class for a ListTable widget which can validate (and coerce to a python list) a typed list from a table widget or a textbox."""
 
-    def __init__(self, state: list = None, val_dtype: Any = None) -> None:
+    def __init__(self, state: list = None, val_dtype: Any = None, **kwargs: Any) -> None:
         super().__init__()
         self.validator = Validate.List(nullable=True)[val_dtype]
         self.state = state
@@ -685,7 +689,7 @@ class ListTable(GenericTable):
 class DictTable(GenericTable):
     """A manager class for a DictTable widget which can validate (and coerce to a python dict) a typed dict from a table widget or a textbox."""
 
-    def __init__(self, state: dict = None, key_dtype: Any = None, val_dtype: Any = None) -> None:
+    def __init__(self, state: dict = None, key_dtype: Any = None, val_dtype: Any = None, **kwargs: Any) -> None:
         super().__init__()
         self.validator = Validate.Dict(nullable=True)[key_dtype, val_dtype]
         self.state = state

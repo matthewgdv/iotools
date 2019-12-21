@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List, Dict, Tuple, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple, TYPE_CHECKING, cast, Optional
 
 from subtypes import Dict_
 
@@ -22,7 +22,7 @@ class Synchronizer:
         return f"{type(self).__name__}(root={repr(self.root)})"
 
     def __getstate__(self) -> dict:
-        return {"root": LostObject(self.root), "parser": LostObject(self.parser)}
+        return {"root": LostObject(self.root)}
 
     def __setstate__(self, attrs: dict) -> None:
         self.__dict__ = attrs
@@ -72,10 +72,10 @@ class Synchronizer:
         """Set all widget states to their argument defaults from this node to the root."""
         self.current_node.set_widgets_to_defaults_ascending()
 
-    def set_widgets_from_namespace_recursively(self, namespace: Dict_) -> None:
+    def set_widgets_from_namespace_recursively(self, namespace: dict) -> None:
         self.root.set_widgets_from_namespace_recursively(namespace=namespace)
 
-    def determine_chosen_handler(self, handler: Any) -> IOHandler:
+    def determine_chosen_handler(self, handler: Any) -> Optional[IOHandler]:
         if handler is None:
             return None
 
@@ -99,8 +99,8 @@ class Synchronizer:
 class Node:
     def __init__(self, handler: IOHandler, sync: Synchronizer, parent: Node = None) -> None:
         self.handler, self.parent, self.children, self.sync = handler, parent, {name: Node(handler=child, sync=sync, parent=self) for name, child in handler.subcommands.items()}, sync
-        self.page: TabPage = None
-        self.parser: ArgParser = None
+        self.page: Optional[TabPage] = None
+        self.parser: Optional[ArgParser] = None
 
         self.sync.handler_mappings[self.handler] = self
 
@@ -111,7 +111,7 @@ class Node:
         if self.children:
             subparsers = self.parser.add_subparsers()
             for name, child in self.children.items():
-                child.parser = subparsers.add_parser(name, prog=child.handler.app_name, description=child.handler.app_desc, handler=child.handler)
+                child.parser = cast(ArgParser, subparsers.add_parser(name, prog=child.handler.app_name, description=child.handler.app_desc, handler=child.handler))
                 child.parser.add_arguments_from_handler()
                 child.parser.set_defaults(node=child)
                 child.add_subparsers_recursively()
@@ -121,7 +121,7 @@ class Node:
             ArgFrame.from_arg(arg).stack()
 
         if self.children:
-            with TabPage(page_names=self.children).stack() as self.page:
+            with TabPage(page_names=list(self.children)).stack() as self.page:
                 for name, child in self.children.items():
                     with self.page[name]:
                         child.create_widgets_recursively()
@@ -179,12 +179,12 @@ class Node:
         if self.parent is not None:
             self.parent.set_widgets_to_defaults_ascending()
 
-    def set_widgets_from_namespace(self, namespace: Dict_) -> None:
+    def set_widgets_from_namespace(self, namespace: dict) -> None:
         for name, argument in self.handler.arguments.items():
             if name in namespace:
                 argument.widget.state = namespace[name]
 
-    def set_widgets_from_namespace_ascending(self, namespace: Dict_) -> None:
+    def set_widgets_from_namespace_ascending(self, namespace: dict) -> None:
         self.sync.root.set_widgets_from_namespace(namespace=namespace)
 
         if self.sync.current_node is not self.sync.root:
@@ -192,7 +192,7 @@ class Node:
                 namespace = namespace[node.handler.name]
                 node.set_widgets_from_namespace(namespace=namespace)
 
-    def set_widgets_from_namespace_recursively(self, namespace: Dict_) -> None:
+    def set_widgets_from_namespace_recursively(self, namespace: dict) -> None:
         self.set_widgets_from_namespace(namespace=namespace)
         for name, child in self.children.items():
             if name in namespace:

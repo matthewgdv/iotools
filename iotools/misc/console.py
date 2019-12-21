@@ -4,6 +4,7 @@ import os
 import sys
 import contextlib
 import functools
+import types
 from typing import Any, Collection, Set, Callable, cast, TypeVar
 import ctypes
 
@@ -18,6 +19,7 @@ from miscutils import is_running_in_ipython
 
 from iotools import res
 
+res = cast(types.ModuleType, res)
 FuncSig = TypeVar("FuncSig", bound=Callable)
 
 

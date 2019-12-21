@@ -33,7 +33,7 @@ class ArgParser(argparse.ArgumentParser):
 
         frame.argtype = frame.argtype.apply(lambda val: str(val))
         frame.commandline_aliases = frame.commandline_aliases.apply(lambda val: ", ".join([str(alias) for alias in val]))
-        frame.conditions = frame.conditions.apply(lambda val: val if val is None else ", ".join([condition.name for condition in val]))
+        frame.conditions = frame.conditions.apply(lambda val: val if val is None else ", ".join([cond.name for cond in val]))
         frame.dependency = frame.dependency.apply(lambda val: val if val is None else str(val))
 
         grouped_frames = dict(tuple(frame.groupby(frame.required.name)))
@@ -51,7 +51,7 @@ class ArgParser(argparse.ArgumentParser):
         return self.formatter_class(prog=self.prog, max_help_position=2000, width=2000)
 
     @staticmethod
-    def validate_and_set(argument: Argument) -> Callable[Any, bool]:
+    def validate_and_set(argument: Argument) -> Callable[[Any], bool]:
         def wrapper(candidate: Any) -> bool:
             argument.value = candidate
             return argument.value

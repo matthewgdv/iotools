@@ -1,3 +1,8 @@
+dill
+cryptography
+cursor
+readchar
+colorama
 infi.systray
 PyQt5
 maybe-else

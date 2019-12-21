@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 import sys
 import os
 import getpass
@@ -20,7 +20,7 @@ class Log:
     def __init__(self, path: PathLike, active: bool = True) -> None:
         self._path, self.user = path, getpass.getuser()
         self._active = self._initialized = False
-        self.file: File = None
+        self.file: Optional[File] = None
 
         if active:
             self.activate()

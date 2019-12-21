@@ -11,9 +11,10 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import dill
+from pathmagic import File
 
 from subtypes import Singleton
-from miscutils import lazy_property
+from miscutils import cached_property
 
 from .config import IoToolsConfig as Config
 
@@ -49,7 +50,7 @@ class LostObject:
     def __len__(self) -> int:
         return 0
 
-    def __iter__(self) -> Lost:
+    def __iter__(self) -> LostObject:
         return self
 
     def __next__(self) -> Any:
@@ -66,7 +67,7 @@ class Serializer:
     """A class used to serialize/deserialize python objects to/from bytes and/or files using the pickle protocol."""
 
     def __init__(self, file: os.PathLike) -> None:
-        self.file = file
+        self.file = File.from_pathlike(file)
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -215,7 +216,7 @@ class Secrets:
         """Decrypt, then deserialize this object's file path back into a python object."""
         return self.serializer.from_bytes(self.fernet.decrypt(self.serializer.file.path.read_bytes()))
 
-    @lazy_property
+    @cached_property
     def fernet(self) -> Fernet:
         encryption_key = self.config.data.encryption_key
         if not encryption_key:

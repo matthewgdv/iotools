@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Union, List, Callable, Iterable
+from typing import Any, Union, List, Callable, Iterable, Optional
 import pathlib
 import enum
 import copy
@@ -58,7 +58,7 @@ class Validator:
 
     def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
         self.nullable, self.use_subtypes = nullable, use_subtypes
-        self.choices: set = None
+        self.choices: Optional[set] = None
         self.conditions: List[Condition] = []
 
         if choices is not None:
@@ -136,7 +136,7 @@ class Validator:
 class AnythingValidator(Validator):
     """A validator that will always return True on Validator.is_valid() and will return the original value on Validator.convert()."""
     class Anything:
-        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> None:
             self.value = value
 
         def is_type(self) -> bool:
@@ -255,7 +255,7 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
             else:
                 return False
 
-    def convert(self, value: Any) -> list:
+    def convert(self, value: Any) -> Optional[list]:
         value = self._try_eval(value)
 
         converted = super().convert(value)
@@ -311,7 +311,7 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
             else:
                 return False
 
-    def convert(self, value: Any) -> dict:
+    def convert(self, value: Any) -> Optional[dict]:
         value = self._try_eval(value)
 
         converted = super().convert(value)
@@ -346,7 +346,7 @@ class DateTimeValidator(Validator):
 class PathValidator(Validator):
     """A validator that can handle filesystem paths. returns a pathlib.Path instance on Validator.convert()."""
     class Path:
-        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> None:
             self.value = value
 
         def is_type(self) -> bool:
@@ -366,7 +366,7 @@ class PathValidator(Validator):
 class FileValidator(Validator):
     """A validator that can handle filesystem paths which are files. returns a pathmagic.File instance on Validator.convert()."""
     class File:
-        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> None:
             self.value = value
 
         def is_type(self) -> bool:
@@ -384,7 +384,7 @@ class FileValidator(Validator):
 class DirValidator(Validator):
     """A validator that can handle filesystem paths which are folders. returns a pathmagic.Dir instance on Validator.convert()."""
     class Dir:
-        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> Any:
+        def __init__(self, value: Any, *args: Any, **kwargs: Any) -> None:
             self.value = value
 
         def is_type(self) -> bool:

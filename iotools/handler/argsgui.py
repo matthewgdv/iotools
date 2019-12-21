@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Tuple, TYPE_CHECKING
+from typing import Any, Tuple, TYPE_CHECKING, Optional
 
 import pandas as pd
 
@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 class ArgsGui(ThreePartGui):
     """A class that dynamically generates an argument selection GUI upon instantiation, given an IOHandler."""
 
-    def __init__(self, sync: Synchronizer, values: dict = None, handler: str = None) -> None:
+    def __init__(self, sync: Synchronizer, values: dict = None, handler: IOHandler = None) -> None:
         super().__init__(name=sync.root.handler.app_name)
         self.sync = sync
-        self.output: Tuple[Dict_, IOHandler] = None
+        self.output: Optional[Tuple[Dict_, IOHandler]] = None
 
         self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)

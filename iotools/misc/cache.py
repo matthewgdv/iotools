@@ -64,7 +64,7 @@ class Cache:
     def _save(self) -> None:
         self.serializer.serialize(self.content)
 
-    def _get_content(self) -> None:
+    def _get_content(self) -> Any:
         try:
             content = self.serializer.deserialize()
         except Exception:
