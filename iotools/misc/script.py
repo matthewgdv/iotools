@@ -14,6 +14,8 @@ from miscutils import Counter, Timer, executed_within_user_tree
 from .log import PrintLog
 from ..handler.iohandler import RunMode
 
+# TODO: Investigate a solution to SqlLog output not being logged by the PrintLog
+
 FuncSig = TypeVar("FuncSig", bound=Callable)
 
 
@@ -60,12 +62,11 @@ class ScriptMeta(type):
     """The metaclass driving the Script class' magic behaviour."""
 
     def __init__(cls, name: str, bases: Any, namespace: dict) -> None:
-        if not bases:
-            profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
-            cls.recursively_wrap(item=cls, profiler=profiler)
-            cls.__init__ = cls.constructor_wrapper(cls.__init__)
+        profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
+        cls.recursively_wrap(item=cls, profiler=profiler)
+        cls.__init__ = cls.constructor_wrapper(cls.__init__)
 
-            cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
+        cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
 
     def recursively_wrap(cls, item: ScriptMeta, profiler: ScriptProfiler) -> None:
         for name, val in vars(item).items():
