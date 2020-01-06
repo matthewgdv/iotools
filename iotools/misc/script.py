@@ -83,7 +83,7 @@ class ScriptMeta(type):
 
             now = DateTime.now()
             logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).new_dir("Python").new_dir("logs")
-            log_path = logs_dir.new_dir(now.to_isoformat_date()).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
+            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
             self.log = PrintLog(log_path)
 
             self._profiler.log = self.log
