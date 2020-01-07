@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     assert Gui
 
 # TODO: Add email selector WidgetHandler
-# TODO: Add abilityto expand Table widgets selector WidgetHandler
+# TODO: Add ability to expand Table widgets selector WidgetHandler
 
 
 class TemporarilyDisconnect:
@@ -27,6 +27,7 @@ class TemporarilyDisconnect:
 
     def __init__(self, callback: Callable) -> None:
         self.callback = callback
+        self.signal: Any = None
 
     def from_(self, signal: Any) -> TemporarilyDisconnect:
         """The signal to disconnect the callback from."""
@@ -99,8 +100,8 @@ class WidgetHandler:
         return self.widget.toolTip()
 
     @tooltip.setter
-    def tooltip(self, val: str) -> str:
-        return self.widget.setToolTip(val)
+    def tooltip(self, val: str) -> None:
+        self.widget.setToolTip(val)
 
     @property
     def parent(self) -> WidgetHandler:
@@ -149,6 +150,10 @@ class WidgetFrame(WidgetHandler):
     """A manager class for a simple Frame widget which can contain other widgets."""
 
     layout_constructor = QtWidgets.QGridLayout
+
+    inner_widget: QtWidgets.QFrame
+    scroll_area: QtWidgets.QScrollArea
+    outer_layout: QtWidgets.QVBoxLayout
 
     def __init__(self, margins: int = None):
         super().__init__()
@@ -258,7 +263,8 @@ class Button(WidgetHandler):
 class Checkbox(WidgetHandler):
     """A manager class for a simple Checkbox widget which can be in the checked or unchecked state."""
 
-    _states_to_values, _values_to_states = {0: False, 1: None, 2: True}, {False: 0, None: 1, True: 2}
+    _values_to_states = {False: QtCore.Qt.Unchecked, None: QtCore.Qt.PartiallyChecked, True: QtCore.Qt.Checked}
+    _states_to_values = {val: key for key, val in _values_to_states.items()}
 
     def __init__(self, state: bool = False, text: str = None, tristate: bool = False, command: Callable = None) -> None:
         super().__init__()
@@ -300,7 +306,7 @@ class CheckBar(HorizontalFrame):
         for checkbox in self.checkboxes:
             checkbox.parent = self
 
-        self.layout.addStretch()
+        # self.layout.addStretch()
 
     @property
     def state(self) -> Dict[str, bool]:
@@ -362,6 +368,8 @@ class NumericEntry(WidgetHandler):
         for argument, callback in [(minimum, self.widget.setMinimum), (maximum, self.widget.setMaximum), (prefix, self.widget.setPrefix), (suffix, self.widget.setSuffix)]:
             if argument is not None:
                 callback(argument)
+
+        self.state = state
 
     @property
     def state(self) -> Union[int, float]:
