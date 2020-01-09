@@ -94,8 +94,8 @@ class PrintLog(Log):
     initial = sys.stdout
     stack: Any = []
 
-    def __init__(self, *args: Any, to_console: bool = True, to_file: bool = True, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
+    def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True) -> None:
+        super().__init__(path=path, active=active)
         self.to_console, self.to_file = to_console, to_file
 
     def __call__(self, to_console: bool = True, to_file: bool = True) -> PrintLog:

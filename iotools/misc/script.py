@@ -8,8 +8,8 @@ import os
 
 from maybe import Maybe
 from subtypes import DateTime
-from pathmagic import Dir
-from miscutils import Counter, Timer, executed_within_user_tree
+from pathmagic import Dir, PathLike
+from miscutils import Timer, executed_within_user_tree
 
 from .log import PrintLog
 from ..handler.iohandler import RunMode
@@ -19,11 +19,27 @@ from ..handler.iohandler import RunMode
 FuncSig = TypeVar("FuncSig", bound=Callable)
 
 
+class NestedPrintLog(PrintLog):
+    def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True, indentation_token: str = "    ") -> None:
+        super().__init__(path=path, active=active, to_console=to_console, to_file=to_file)
+        self.indentation_token, self.indentation_level = indentation_token, 0
+
+    def write(self, text: str, to_console: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
+        """Write the given text to this log's file and to sys.stdout, based on the 'to_console' and 'to_file' attributes set by the constructor. These attributes can be overriden by the arguments in this call."""
+        if Maybe(to_console).else_(self.to_console):
+            super().write(text, to_console=True, to_file=False, add_newlines=add_newlines)
+
+        if Maybe(to_file).else_(self.to_file):
+            prefix = f"{DateTime.now().to_logformat()} - {self.indentation_token*self.indentation_level}"
+            new_text = "\n".join(f"{prefix}{line}" if line else "" for line in text.split("\n"))
+            super().write(text=new_text, to_console=False, to_file=True, add_newlines=add_newlines)
+
+
 class ScriptProfiler:
     """A profiler decorator class used by the Script class."""
 
-    def __init__(self, log: PrintLog = None, verbose: bool = False) -> None:
-        self.log, self.verbose, self.stack = log, verbose, Counter()
+    def __init__(self, log: NestedPrintLog = None, verbose: bool = False) -> None:
+        self.log, self.verbose = log, verbose
 
     def __call__(self, func: FuncSig = None) -> FuncSig:
         @functools.wraps(func)
@@ -35,27 +51,23 @@ class ScriptProfiler:
             func_name = f"{type(args[0]).__name__}.{func.__name__}"
 
             with self.log(to_console=self.verbose):
-                print(f"{self.prefix}{func_name}({arguments}) starting...")
+                print(f"{func_name}({arguments}) starting...")
 
-            self.stack.increment()
+            self.log.indentation_level += 1
 
             with self.log(to_console=True):
                 ret = func(*args, **kwargs)
 
-            self.stack.decrement()
+            self.log.indentation_level -= 1
 
             with self.log(to_console=self.verbose):
                 has_repr = type(args[0]).__repr__ is not object.__repr__
-                print(f"{self.prefix}{func_name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {type(args[0]).__name__} object is: {repr(args[0])}' if has_repr else ''}")
+                print(f"{func_name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {type(args[0]).__name__} object is: {repr(args[0])}' if has_repr else ''}")
 
             self.log(to_console=to_console)
 
             return ret
         return cast(FuncSig, wrapper)
-
-    @property
-    def prefix(self) -> str:
-        return f"{DateTime.now().to_logformat()} - {'    '*int(Maybe(self.stack).else_(0))}"
 
 
 class ScriptMeta(type):
@@ -84,7 +96,7 @@ class ScriptMeta(type):
             now = DateTime.now()
             logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).new_dir("Python").new_dir("logs")
             log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
-            self.log = PrintLog(log_path)
+            self.log = NestedPrintLog(log_path)
 
             self._profiler.log = self.log
 
@@ -115,7 +127,7 @@ class Script(metaclass=ScriptMeta):
     """
     name: str
     arguments: Dict[str, Any]
-    log: PrintLog
+    log: NestedPrintLog
 
     run_mode = RunMode.SMART
     verbose = serialize = False
