@@ -25,7 +25,7 @@ class Gui(QtWidgets.QMainWindow):
     """
     app, stack = QtWidgets.QApplication([]), []
 
-    def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, on_close: Callable = None):
+    def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, on_close: Callable = sys.exit):
         super().__init__()
         self.name, self.on_close = name, on_close or self.end
 
@@ -58,13 +58,13 @@ class Gui(QtWidgets.QMainWindow):
         return self
 
     def closeEvent(self, event: Any) -> None:
-        sys.exit() if self.on_close is None else self.on_close()
+        self.on_close()
 
 
 class ThreePartGui(Gui):
     """Gui with 3 separate segments, a top segment, a main segment, and a bottom segment."""
 
-    def __init__(self, name: str = None, on_close: Callable = None):
+    def __init__(self, name: str = None, on_close: Callable = sys.exit):
         super().__init__(name=name, on_close=on_close)
         with self:
             self.top, self.main, self.bottom = HorizontalFrame(margins=0).stack(), VerticalFrame(margins=0).stack(), HorizontalFrame(margins=0).stack()
