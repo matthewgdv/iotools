@@ -32,6 +32,9 @@ class Console:
     colorama.init()
     COLORAMA_STDOUT = sys.stdout
 
+    class NoOutput:
+        pass
+
     @staticmethod
     def hide_console() -> None:
         """Hide the current application console. Only works on Windows systems."""
@@ -132,8 +135,8 @@ class Console:
         if desc is not None:
             print(desc, end="\n\n")
 
-        output, current_index = None, starting_index
-        while output is None:
+        output, current_index = Console.NoOutput, starting_index
+        while output is Console.NoOutput:
             print("\n".join([f"{'[x]' if index == current_index else '[ ]'} {repr(choice) if display_repr else choice}" for index, choice in enumerate(choices)]))
 
             while True:
@@ -150,7 +153,7 @@ class Console:
                 elif keypress == readchar.key.ESC:
                     raise KeyboardInterrupt()
 
-            if output is None:
+            if output is Console.NoOutput:
                 Console.clear_lines(len(choices))
 
         return output
