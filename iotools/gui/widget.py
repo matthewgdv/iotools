@@ -327,7 +327,7 @@ class DropDown(WidgetHandler):
         self.get_state, self.set_state = self.widget.currentText, self.widget.setCurrentText
 
         self.choices = ["", *choices] if state is None and "" not in choices else choices
-        self.state = state
+        self.state = str(state)
 
     @property
     def choices(self) -> List[str]:
