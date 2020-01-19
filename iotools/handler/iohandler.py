@@ -83,7 +83,7 @@ class IOHandler:
         return subcommand
 
     def process(self, values: dict = None, handler: IOHandler = None) -> CallableDict:
-        """Collect input using this IOHandler's 'run_mode' and return a Dict_ holding the parsed arguments, coerced to appropriate python types."""
+        """Collect input using this IOHandler's 'run_mode' and return a CallableDict holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
