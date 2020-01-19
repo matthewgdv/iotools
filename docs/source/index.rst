@@ -1,5 +1,5 @@
 Welcome to iotools' documentation!
-=================================
+==================================
 
 .. toctree::
    :caption: Contents:
