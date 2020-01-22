@@ -21,14 +21,17 @@ class Config:
     """
     name: str = None
     default: dict = None
+
+    parent: Config = None
+    author: str = None
     systemwide: bool = None
 
-    def __init__(self, name: str = None, default: dict = None, systemwide: bool = None, parent: Config = None) -> None:
-        self.name, self.default, self.systemwide = name or self.name, default or self.default, systemwide or self.systemwide
+    def __init__(self, name: str = None, author: str = None, default: dict = None, systemwide: bool = None, parent: Config = None) -> None:
+        self.name, self.author, self.default, self.systemwide = name or self.name, author or self.author or "pythondata", default or self.default, systemwide or self.systemwide
         self.parent = parent
 
         if self.parent is None:
-            self.root = self.folder = Dir.from_appdata(app_name=self.name, app_author="pythondata", systemwide=Maybe(self.systemwide).else_(not executed_within_user_tree()))
+            self.root = self.folder = Dir.from_appdata(app_name=self.name, app_author=self.author, systemwide=self.systemwide if self.systemwide is not None else not executed_within_user_tree())
         else:
             self.root, self.folder = parent.root, parent.folder.new_dir(self.name)
 
@@ -46,8 +49,8 @@ class Config:
             self.save()
 
     def clear(self) -> None:
-        """Clear the data in the config file."""
-        self.data = None
+        """Clear the the config data. Will not be persisted to the config file until .save() is called on this object."""
+        self.data = Dict_(self.default or {})
 
     def import_(self, path: PathLike) -> None:
         """Import the config file at the given path."""
@@ -58,13 +61,13 @@ class Config:
 
         self.data = file.content
 
-    def export(self, path: PathLike) -> None:
+    def export_as(self, path: PathLike) -> None:
         """Export the config file to the given path."""
         self.file.copy(path)
 
-    def export_to(self, path: PathLike) -> None:
+    def export_to(self, folder: PathLike) -> None:
         """Export the config file to the given directory, keeping its name ('config.json')."""
-        self.file.copy_to(path)
+        self.file.copy_to(folder)
 
     def start(self) -> File:
         """Initialize the config file with the default application for json files."""
