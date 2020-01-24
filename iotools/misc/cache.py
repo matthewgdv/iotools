@@ -40,7 +40,7 @@ class Cache:
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         if ex_type is None:
-            self._save()
+            self.serializer.serialize(self.content)
 
     def get(self, key: str, fallback: Any = None) -> Any:
         """Get a given item from the cache by its key. Returns the fallback (default None) if the key cannot be found."""
@@ -60,9 +60,6 @@ class Cache:
         """Return an item from the cache by its key. If the key cannot be found, the default value will be added to the cache under that key, and then returned."""
         with self:
             return self.content.data.setdefault(key, default)
-
-    def _save(self) -> None:
-        self.serializer.serialize(self.content)
 
     def _get_content(self) -> Any:
         try:
