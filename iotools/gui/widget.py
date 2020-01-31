@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 # TODO: Add email selector WidgetHandler
 # TODO: Add ability to expand Table widgets selector WidgetHandler
+# TODO: Change widget for list selection to something better than a table
 
 
 class TemporarilyDisconnect:
