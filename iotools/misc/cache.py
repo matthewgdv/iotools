@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import warnings
 from typing import Any
 
 from maybe import Maybe
@@ -64,11 +65,12 @@ class Cache:
     def _get_content(self) -> Any:
         try:
             content = self.serializer.deserialize()
-        except Exception:
+        except Exception as ex:
+            warnings.warn(f"The following exception ocurred when attempting to deserialize the contents of the cache at '{self.serializer.file}' and was suppressed:\n\n{ex}\n\nAn empty cache will be returned...")
             content = None
 
         if not content:
-            content = Cache.Content(expires_on=self.expiry)
+            content = self.Content(expires_on=self.expiry)
             self.serializer.serialize(content)
 
         return content

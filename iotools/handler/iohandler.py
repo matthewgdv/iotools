@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import string
 import sys
-from typing import Any, Callable, Dict, List, Union, Optional, Type
+from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple
 
 from maybe import Maybe
 from subtypes import Enum, ValueEnum, Frame, Dict_
@@ -38,8 +38,8 @@ class IOHandler:
 
     stack: List[IOHandler] = []
 
-    def __init__(self, app_name: str, app_desc: str = "", run_mode: RunMode = RunMode.SMART, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
-        self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode, callback, subtypes, Maybe(_name).else_("main"), _parent
+    def __init__(self, app_name: str, app_desc: str = "", run_mode: RunMode = None, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
+        self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode or RunMode.SMART, callback, subtypes, Maybe(_name).else_("main"), _parent
         self.config = Config() if self.parent is None else self.parent.config
 
         self.arguments: Dict[str, Argument] = {}
@@ -106,22 +106,21 @@ class IOHandler:
             self.outdir.clear()
 
     def _choose_handler_method(self) -> Callable:
-        if self.run_mode == RunMode.COMMANDLINE:
-            return self.sync.run_from_commandline
-        elif self.run_mode == RunMode.GUI:
-            return self.sync.run_as_gui
-        elif self.run_mode == RunMode.PROGRAMMATIC:
-            return self.sync.run_programatically
-        elif self.run_mode == RunMode.SMART:
-            if is_running_in_ipython():
-                return self.sync.run_programatically
-            else:
-                if not sys.argv[1:]:
-                    return self.sync.run_as_gui
-                else:
-                    return self.sync.run_from_commandline
+        return RunMode(self.run_mode).map_to({
+            RunMode.COMMANDLINE: self.sync.run_from_commandline,
+            RunMode.GUI: self.sync.run_as_gui,
+            RunMode.PROGRAMMATIC: self.sync.run_programatically,
+            RunMode.SMART: self._run_smart
+        })
+
+    def _run_smart(self, *args: Any, **kwargs: Any) -> Tuple[Dict_, IOHandler]:
+        if is_running_in_ipython():
+            return self.sync.run_programatically(*args, **kwargs)
         else:
-            RunMode.raise_if_not_a_member(self.run_mode)
+            if not sys.argv[1:]:
+                return self.sync.run_as_gui(*args, **kwargs)
+            else:
+                return self.sync.run_from_commandline(*args, **kwargs)
 
     def _save_latest_input_config(self, namespace: Dict_) -> None:
         self._latest.content = namespace
@@ -209,15 +208,7 @@ class Dependency:
         ALL, ANY = "all", "any"
 
     def __init__(self, *args: Argument, argument: Argument = None, mode: Dependency.Mode = Mode.ANY) -> None:
-        self.argument = argument
-        self.arguments = list(args)
-
-        if mode == Dependency.Mode.ANY:
-            self.mode = any
-        elif mode == Dependency.Mode.ALL:
-            self.mode = all
-        else:
-            Dependency.Mode.raise_if_not_a_member(mode)
+        self.argument, self.arguments, self.mode = argument, list(args), self.Mode(mode).map_to({self.Mode.ALL: all, self.Mode.ANY: any})
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}(argument={self.argument}, arguments=[{', '.join(arg.name for arg in self.arguments)}], mode={self.mode.__name__})"
