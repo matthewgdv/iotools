@@ -75,20 +75,20 @@ class ScriptMeta(type):
 
     def __init__(cls, name: str, bases: Any, namespace: dict) -> None:
         profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
-        cls.recursively_wrap(item=cls, profiler=profiler)
-        cls.__init__ = cls.constructor_wrapper(cls.__init__)
+        cls._recursively_wrap(item=cls, profiler=profiler)
+        cls.__init__ = cls._constructor_wrapper(cls.__init__)
 
         cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
 
-    def recursively_wrap(cls, item: ScriptMeta, profiler: ScriptProfiler) -> None:
+    def _recursively_wrap(cls, item: ScriptMeta, profiler: ScriptProfiler) -> None:
         for name, val in vars(item).items():
             if inspect.isfunction(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
                 setattr(item, name, profiler(val))
 
             elif inspect.isclass(val):
-                cls.recursively_wrap(item=val, profiler=profiler)
+                cls._recursively_wrap(item=val, profiler=profiler)
 
-    def constructor_wrapper(cls, func: FuncSig) -> FuncSig:
+    def _constructor_wrapper(cls, func: FuncSig) -> FuncSig:
         @functools.wraps(func)
         def wrapper(self: Script, **arguments: Any) -> None:
             self.arguments = arguments
@@ -129,8 +129,22 @@ class Script(metaclass=ScriptMeta):
     arguments: Dict[str, Any]
     log: NestedPrintLog
 
-    run_mode = RunMode.SMART
     verbose = serialize = False
+
+    def __init__(self, **arguments: Any) -> None:
+        pass
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
+
+    @classmethod
+    def exec_prog(cls, **arguments: Any) -> Script:
+        return cls(run_mode=RunMode.PROGRAMMATIC, **arguments)
+
+    @classmethod
+    def exec_gui(cls, **arguments: Any) -> Script:
+        return cls(run_mode=RunMode.GUI, **arguments)
+
+    @classmethod
+    def exec_cl(cls, **arguments: Any) -> Script:
+        return cls(run_mode=RunMode.COMMANDLINE, **arguments)
