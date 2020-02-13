@@ -8,6 +8,7 @@ import getpass
 from maybe import Maybe
 from subtypes import DateTime
 from pathmagic import File, Dir, PathLike
+from miscutils import StreamReplacerMixin
 
 
 class Log:
@@ -17,13 +18,10 @@ class Log:
     When used as a context manager, the log will activate upon entering, and deactivate upon exiting.
     """
 
-    def __init__(self, path: PathLike, active: bool = True) -> None:
+    def __init__(self, path: PathLike) -> None:
         self._path, self.user = path, getpass.getuser()
         self._active = self._initialized = False
         self.file: Optional[File] = None
-
-        if active:
-            self.activate()
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -46,16 +44,15 @@ class Log:
 
     def activate(self) -> None:
         """Activate this log."""
-        if not self._initialized:
-            self._initialize()
+        if self._path is not None:
+            if not self._initialized:
+                self._initialize()
 
-        if not self._active:
             self._active = True
 
     def deactivate(self) -> None:
         """Deactivate this log. A deactivated log will do nothing when written to."""
-        if self._active:
-            self._active = False
+        self._active = False
 
     def write(self, text: str, add_newlines: int = 2) -> None:
         """Write the given text this log, optionally appending newlines."""
@@ -75,8 +72,11 @@ class Log:
 
     def _initialize(self) -> None:
         self.file = File(self._path)
-        self.file.append(f"{'-' * 200}\n" if self.file.content else "")
+
+        if self.file.content:
+            self.file.append(f"{'-' * 200}\n")
         self.file.append(f"-- Process run by user: {self.user} at: {DateTime.now()}\n\n")
+
         self._initialized = True
 
     @classmethod
@@ -89,38 +89,30 @@ class Log:
         return cls(path, active=active)
 
 
-class PrintLog(Log):
+class PrintLog(Log, StreamReplacerMixin):
     """A subclass of miscutils.Log directed at capturing the sys.stdout stream and logging it, in addition to still writing to sys.stdout (though this can be controlled with arguments)."""
-    initial = sys.stdout
-    stack: Any = []
 
     def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True) -> None:
         super().__init__(path=path, active=active)
-        self.to_console, self.to_file = to_console, to_file
+        self.to_stream, self.to_file = to_console, to_file
 
-    def __call__(self, to_console: bool = True, to_file: bool = True) -> PrintLog:
-        self.to_console, self.to_file = to_console, to_file
+    def __call__(self, to_stream: bool = True, to_file: bool = True) -> PrintLog:
+        self.to_stream, self.to_file = to_stream, to_file
         return self
 
-    def __enter__(self) -> PrintLog:
-        self.stack.append(sys.stdout)
-        sys.stdout = self
+    def __enter__(self) -> Log:
+        super().__enter__()
+        StreamReplacerMixin.__enter__(self)
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        sys.stdout = self.stack.pop(-1)
+        super().__exit__(ex_type=ex_type, ex_value=ex_value, ex_traceback=ex_traceback)
+        StreamReplacerMixin.__exit__(self, ex_type=ex_type, ex_value=ex_value, ex_traceback=ex_traceback)
 
-    def write(self, text: str, to_console: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
+    def write(self, text: str, to_stream: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
         """Write the given text to this log's file and to sys.stdout, based on the 'to_console' and 'to_file' attributes set by the constructor. These attributes can be overriden by the arguments in this call."""
-        if Maybe(to_console).else_(self.to_console):
-            self.initial.write(text + "\n"*add_newlines)
+        if Maybe(to_stream).else_(self.to_stream):
+            self.stream.write(text + "\n"*add_newlines)
 
         if Maybe(to_file).else_(self.to_file):
-            try:
-                super().write(text, add_newlines=add_newlines)
-            except UnicodeEncodeError:
-                pass
-
-    def flush(self) -> None:
-        """Flush the sys.stdout stream."""
-        self.initial.flush()
+            super().write(text, add_newlines=add_newlines)

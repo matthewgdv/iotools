@@ -24,15 +24,15 @@ class NestedPrintLog(PrintLog):
         super().__init__(path=path, active=active, to_console=to_console, to_file=to_file)
         self.indentation_token, self.indentation_level = indentation_token, 0
 
-    def write(self, text: str, to_console: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
+    def write(self, text: str, to_stream: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
         """Write the given text to this log's file and to sys.stdout, based on the 'to_console' and 'to_file' attributes set by the constructor. These attributes can be overriden by the arguments in this call."""
-        if Maybe(to_console).else_(self.to_console):
-            super().write(text, to_console=True, to_file=False, add_newlines=add_newlines)
+        if Maybe(to_stream).else_(self.to_stream):
+            super().write(text, to_stream=True, to_file=False, add_newlines=add_newlines)
 
         if Maybe(to_file).else_(self.to_file):
             prefix = f"{DateTime.now().to_logformat()} - {self.indentation_token*self.indentation_level}"
             new_text = "\n".join(f"{prefix}{line}" if line else "" for line in text.split("\n"))
-            super().write(text=new_text, to_console=False, to_file=True, add_newlines=add_newlines)
+            super().write(text=new_text, to_stream=False, to_file=True, add_newlines=add_newlines)
 
 
 class ScriptProfiler:
@@ -44,27 +44,27 @@ class ScriptProfiler:
     def __call__(self, func: FuncSig = None) -> FuncSig:
         @functools.wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
-            timer, to_console = Timer(), self.log.to_console
+            timer, to_stream = Timer(), self.log.to_stream
 
             positional, keyword = ', '.join([repr(arg) for arg in args[1:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
             arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
             func_name = f"{type(args[0]).__name__}.{func.__name__}"
 
-            with self.log(to_console=self.verbose):
+            with self.log(to_stream=self.verbose):
                 print(f"{func_name}({arguments}) starting...")
 
             self.log.indentation_level += 1
 
-            with self.log(to_console=True):
+            with self.log(to_stream=True):
                 ret = func(*args, **kwargs)
 
             self.log.indentation_level -= 1
 
-            with self.log(to_console=self.verbose):
+            with self.log(to_stream=self.verbose):
                 has_repr = type(args[0]).__repr__ is not object.__repr__
                 print(f"{func_name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {type(args[0]).__name__} object is: {repr(args[0])}' if has_repr else ''}")
 
-            self.log(to_console=to_console)
+            self.log(to_stream=to_stream)
 
             return ret
         return cast(FuncSig, wrapper)
@@ -106,7 +106,7 @@ class ScriptMeta(type):
                 func(self)
             except Exception as ex:
                 exception = ex
-                self.log.write(traceback.format_exc(), to_console=False)
+                self.log.write(traceback.format_exc(), to_stream=False)
 
             if self.serialize:
                 self.log.file.new_rename(self.log.file.stem, "pkl").content = self
