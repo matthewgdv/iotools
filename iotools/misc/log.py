@@ -84,16 +84,16 @@ class Log:
         """Create a new Log from the given arguments."""
         default_log_dir = Dir.from_home().d.documents.new_dir("Python").new_dir("logs")
         logdir = Dir.from_pathlike(Maybe(log_dir).else_(default_log_dir))
-        path = fR"{logdir}{os.sep}{log_name}Log{DateTime.now().to_filetag()}{file_extension if file_extension.startswith('.') else f'.{file_extension}'}"
+        file = logdir.new_file(f"{log_name}_log_{DateTime.today().to_filetag()}", file_extension)
 
-        return cls(path, active=active)
+        return cls(file)
 
 
 class PrintLog(Log, StreamReplacerMixin):
     """A subclass of miscutils.Log directed at capturing the sys.stdout stream and logging it, in addition to still writing to sys.stdout (though this can be controlled with arguments)."""
 
     def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True) -> None:
-        super().__init__(path=path, active=active)
+        super().__init__(path=path)
         self.to_stream, self.to_file = to_console, to_file
 
     def __call__(self, to_stream: bool = True, to_file: bool = True) -> PrintLog:
