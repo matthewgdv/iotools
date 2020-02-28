@@ -177,7 +177,7 @@ class Script(metaclass=ScriptMeta):
     verbose = serialize = False
     log_location = "/Python/logs"
 
-    def __init__(self, **arguments: Any) -> None:
+    def __init__(self, *args, **kwargs: Any) -> None:
         pass
 
     def __repr__(self) -> str:
