@@ -1,27 +1,59 @@
 from __future__ import annotations
 
+import pathlib
+from contextlib import contextmanager
 import functools
 import traceback
-from typing import Dict, Any, cast, TypeVar, Callable
+from typing import Dict, Any, Callable
 import inspect
 import os
 
 from maybe import Maybe
-from subtypes import DateTime
+from subtypes import DateTime, Enum
 from pathmagic import Dir, PathLike
-from miscutils import Timer, executed_within_user_tree
+from miscutils import Timer, executed_within_user_tree, ReprMixin
 
 from .log import PrintLog
 from ..handler.iohandler import RunMode
 
-# TODO: Investigate a solution to SqlLog output not being logged by the PrintLog
 
-FuncSig = TypeVar("FuncSig", bound=Callable)
+class FunctionSpec(ReprMixin):
+    class FunctionType(Enum):
+        INSTANCE, STATIC, CLASS, UNKNOWN = "instance", "static", "class", "unknown"
+
+    def __init__(self, parent: Any, name: str, parent_reference: Any) -> None:
+        self.class_, self.name, self.func = parent, f"{parent.__name__}.{name}", parent_reference if (ref_is_func := inspect.isfunction(parent_reference)) else parent_reference.__func__
+
+        if ref_is_func:
+            self.type = self.FunctionType.INSTANCE
+        elif isinstance(parent_reference, staticmethod):
+            self.type = self.FunctionType.STATIC
+        elif isinstance(parent_reference, classmethod):
+            self.type = self.FunctionType.CLASS
+        else:
+            self.type = self.FunctionType.UNKNOWN
+
+        self.is_static = self.type == self.FunctionType.STATIC
+        self.is_instance = self.type == self.FunctionType.INSTANCE
+        self.is_class = self.type == self.FunctionType.CLASS
+        self.is_bound = self.is_instance or self.is_class
+
+    def wrap(self, func: Callable) -> Any:
+        if self.is_instance:
+            half_wrapped = func
+        elif self.is_static:
+            half_wrapped = staticmethod(func)
+        elif self.is_class:
+            half_wrapped = classmethod(func)
+        else:
+            raise ValueError(f"Don't know function type of {self}.")
+
+        return functools.wraps(self.func)(half_wrapped)
 
 
 class NestedPrintLog(PrintLog):
-    def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True, indentation_token: str = "    ") -> None:
-        super().__init__(path=path, active=active, to_console=to_console, to_file=to_file)
+    def __init__(self, path: PathLike, active: bool = True, to_stream: bool = True, to_file: bool = True, indentation_token: str = "    ") -> None:
+        super().__init__(path=path, active=active, to_stream=to_stream, to_file=to_file)
         self.indentation_token, self.indentation_level = indentation_token, 0
 
     def write(self, text: str, to_stream: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
@@ -34,6 +66,18 @@ class NestedPrintLog(PrintLog):
             new_text = "\n".join(f"{prefix}{line}" if line else "" for line in text.split("\n"))
             super().write(text=new_text, to_stream=False, to_file=True, add_newlines=add_newlines)
 
+    @contextmanager
+    def indentation(self) -> NestedPrintLog:
+        self.indentation_level += 1
+        yield self
+        self.indentation_level -= 1
+
+    @contextmanager
+    def reset_output_channels_soon(self) -> NestedPrintLog:
+        to_stream, to_file = self.to_stream, self.to_file
+        yield self
+        self.to_stream, self.to_file = to_stream, to_file
+
 
 class ScriptProfiler:
     """A profiler decorator class used by the Script class."""
@@ -41,33 +85,29 @@ class ScriptProfiler:
     def __init__(self, log: NestedPrintLog = None, verbose: bool = False) -> None:
         self.log, self.verbose = log, verbose
 
-    def __call__(self, func: FuncSig = None) -> FuncSig:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            timer, to_stream = Timer(), self.log.to_stream
-
-            positional, keyword = ', '.join([repr(arg) for arg in args[1:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
+    def __call__(self, spec: FunctionSpec = None) -> Callable:
+        def script_wrapper(*args: Any, **kwargs: Any) -> Any:
+            instance = args[0] if spec.is_instance else None
+            positional, keyword = ', '.join([repr(arg) for arg in args[1 if spec.is_bound else 0:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
             arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
-            func_name = f"{type(args[0]).__name__}.{func.__name__}"
 
-            with self.log(to_stream=self.verbose):
-                print(f"{func_name}({arguments}) starting...")
+            with self.log.reset_output_channels_soon():
+                with self.log(to_stream=self.verbose):
+                    print(f"{spec.name}({arguments}) starting...")
 
-            self.log.indentation_level += 1
+                timer = Timer()
 
-            with self.log(to_stream=True):
-                ret = func(*args, **kwargs)
+                with self.log(to_stream=True):
+                    with self.log.indentation():
+                        ret = spec.func(*args, **kwargs)
 
-            self.log.indentation_level -= 1
-
-            with self.log(to_stream=self.verbose):
-                has_repr = type(args[0]).__repr__ is not object.__repr__
-                print(f"{func_name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {type(args[0]).__name__} object is: {repr(args[0])}' if has_repr else ''}")
-
-            self.log(to_stream=to_stream)
+                with self.log(to_stream=self.verbose):
+                    has_repr = spec.class_.__repr__ is not object.__repr__
+                    print(f"{spec.name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {spec.class_.__name__} object is: {repr(instance)}' if spec.is_instance and has_repr else ''}")
 
             return ret
-        return cast(FuncSig, wrapper)
+
+        return spec.wrap(script_wrapper)
 
 
 class ScriptMeta(type):
@@ -75,46 +115,51 @@ class ScriptMeta(type):
 
     def __init__(cls, name: str, bases: Any, namespace: dict) -> None:
         profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
-        cls._recursively_wrap(item=cls, profiler=profiler)
-        cls.__init__ = cls._constructor_wrapper(cls.__init__)
-
         cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
 
-    def _recursively_wrap(cls, item: ScriptMeta, profiler: ScriptProfiler) -> None:
+        cls._recursively_wrap(item=cls)
+        cls.__init__ = cls._constructor_wrapper(cls.__init__)
+
+    def _recursively_wrap(cls, item: Any) -> None:
         for name, val in vars(item).items():
-            if inspect.isfunction(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
-                setattr(item, name, profiler(val))
+            if cls._is_valid_function_type(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
+                setattr(item, name, cls._profiler(FunctionSpec(parent=item, name=name, parent_reference=val)))
 
             elif inspect.isclass(val):
-                cls._recursively_wrap(item=val, profiler=profiler)
+                cls._recursively_wrap(item=val)
 
-    def _constructor_wrapper(cls, func: FuncSig) -> FuncSig:
+    def _constructor_wrapper(cls, func: Callable) -> Callable:
         @functools.wraps(func)
-        def wrapper(self: Script, **arguments: Any) -> None:
-            self.arguments = arguments
+        def init_wrapper(script: Script, *args, **kwargs: Any) -> None:
+            script.arguments = kwargs
+
+            if (log_location := pathlib.Path(script.log_location)).is_absolute():
+                logs_dir = Dir(log_location)
+            else:
+                logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).join_dir(log_location)
 
             now = DateTime.now()
-            logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).new_dir("Python").new_dir("logs")
-            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(self.name).new_file(f"[{now.hour}h {now.minute}m {now.second}s {now.microsecond}ms]", "txt")
-            self.log = NestedPrintLog(log_path)
-
-            self._profiler.log = self.log
+            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(script.name).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
+            script._profiler.log = script.log = NestedPrintLog(log_path)
 
             exception = None
 
             try:
-                func(self)
+                func(script, *args, **kwargs)
             except Exception as ex:
                 exception = ex
-                self.log.write(traceback.format_exc(), to_stream=False)
+                script.log.write(traceback.format_exc(), to_stream=False)
 
-            if self.serialize:
-                self.log.file.new_rename(self.log.file.stem, "pkl").content = self
+            if script.serialize:
+                script.log.file.new_rename(script.log.file.stem, "pkl").content = script
 
             if exception is not None:
                 raise exception
 
-        return cast(FuncSig, wrapper)
+        return init_wrapper
+
+    def _is_valid_function_type(cls, candidate: Any) -> bool:
+        return inspect.isfunction(candidate) or isinstance(candidate, (staticmethod, classmethod))
 
 
 class Script(metaclass=ScriptMeta):
@@ -130,6 +175,7 @@ class Script(metaclass=ScriptMeta):
     log: NestedPrintLog
 
     verbose = serialize = False
+    log_location = "/Python/logs"
 
     def __init__(self, **arguments: Any) -> None:
         pass

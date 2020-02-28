@@ -141,10 +141,6 @@ class SystemTrayGui(Gui):
         self.widget.hide()
         self.end()
 
-    @classmethod
-    def create(cls, name: str) -> SystemTrayGui:
-        return cls(name=name).start()
-
 
 class ProgressBarGui(Gui):
     """
@@ -164,11 +160,12 @@ class ProgressBarGui(Gui):
             self.label.parent = self
         self.bar.parent = self
 
-    def __iter__(self) -> ProgressBar:
+    def __iter__(self) -> ProgressBarGui:
         self.__iter, self.count = iter(self.iterable), 0
         self.bar.state = self.count
         self.widget.show()
         self.app.processEvents()
+
         return self
 
     def __next__(self) -> Any:

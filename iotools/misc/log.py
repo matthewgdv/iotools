@@ -92,9 +92,9 @@ class Log:
 class PrintLog(Log, StreamReplacerMixin):
     """A subclass of miscutils.Log directed at capturing the sys.stdout stream and logging it, in addition to still writing to sys.stdout (though this can be controlled with arguments)."""
 
-    def __init__(self, path: PathLike, active: bool = True, to_console: bool = True, to_file: bool = True) -> None:
+    def __init__(self, path: PathLike, active: bool = True, to_stream: bool = True, to_file: bool = True) -> None:
         super().__init__(path=path)
-        self.to_stream, self.to_file = to_console, to_file
+        self.to_stream, self.to_file = to_stream, to_file
 
     def __call__(self, to_stream: bool = True, to_file: bool = True) -> PrintLog:
         self.to_stream, self.to_file = to_stream, to_file
