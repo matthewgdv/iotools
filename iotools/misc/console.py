@@ -28,6 +28,9 @@ class Console:
     SEP = "-"*150
     SEP2 = f"{'-'*150}\n{'-'*150}"
 
+    UP_ONE_LINE = "\033[A"
+    CLEAR_CURRENT_LINE = "\033[2K"
+
     DEFAULT_STDOUT = sys.stdout
     colorama.init()
     COLORAMA_STDOUT = sys.stdout
@@ -45,11 +48,10 @@ class Console:
         """Show the current application console if it is hidden. Only works on Windows systems."""
         ctypes.WinDLL("user32").ShowWindow(ctypes.WinDLL("kernel32").GetConsoleWindow(), 1)
 
-    @staticmethod
-    def clear_lines(num: int = 1) -> None:
+    @classmethod
+    def clear_lines(cls, num: int = 1) -> None:
         """Clear the given number of lines previously displayed on the console."""
-        up_one, clear_current = "\033[A", "\033[2K"
-        print(f"{up_one}{clear_current}" * num, end="")
+        print(f"{cls.UP_ONE_LINE}{cls.CLEAR_CURRENT_LINE}"*num, end="")
 
     @staticmethod
     def offer_choices(choices: Collection, starting_choice: Any = None, multi_select: bool = False, desc: str = None, helptext: bool = True, display_repr: bool = True) -> Any:

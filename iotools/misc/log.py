@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 from typing import Any, Optional
-import sys
-import os
 import getpass
 
 from maybe import Maybe
-from subtypes import DateTime
+from subtypes import DateTime, Str
 from pathmagic import File, Dir, PathLike
 from miscutils import StreamReplacerMixin
+
+from .console import Console
 
 
 class Log:
@@ -32,6 +32,7 @@ class Log:
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
         self.deactivate()
+        self.post_process()
 
     @property
     def active(self) -> bool:
@@ -69,6 +70,9 @@ class Log:
     def start(self) -> None:
         """Start this log's file using the default application for this type of file."""
         self.file.start()
+
+    def post_process(self) -> None:
+        pass
 
     def _initialize(self) -> None:
         self.file = File(self._path)
@@ -116,3 +120,18 @@ class PrintLog(Log, StreamReplacerMixin):
 
         if Maybe(to_file).else_(self.to_file):
             super().write(text, add_newlines=add_newlines)
+
+    def post_process(self) -> None:
+        if (clear_line := f"{Console.UP_ONE_LINE}{Console.CLEAR_CURRENT_LINE}") in (text := self.file.content):
+            lines, escaped_clear_line, out_lines, skip_counter = reversed(text.split("\n")), Str(clear_line).re.escape(), [], 0
+            for index, line in enumerate(lines):
+                num_to_clear = line.count(clear_line)
+                if skip_counter:
+                    skip_counter -= 1
+                else:
+                    out_lines.append(Str(line).slice.after_last(escaped_clear_line) if num_to_clear else line)
+
+                if num_to_clear:
+                    skip_counter = max([skip_counter, num_to_clear])
+
+            self.file.content = "\n".join(reversed(out_lines))

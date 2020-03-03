@@ -4,7 +4,7 @@ import pathlib
 from contextlib import contextmanager
 import functools
 import traceback
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Type
 import inspect
 import os
 
@@ -79,69 +79,37 @@ class NestedPrintLog(PrintLog):
         self.to_stream, self.to_file = to_stream, to_file
 
 
-class ScriptProfiler:
-    """A profiler decorator class used by the Script class."""
-
-    def __init__(self, log: NestedPrintLog = None, verbose: bool = False) -> None:
-        self.log, self.verbose = log, verbose
-
-    def __call__(self, spec: FunctionSpec = None) -> Callable:
-        def script_wrapper(*args: Any, **kwargs: Any) -> Any:
-            instance = args[0] if spec.is_instance else None
-            positional, keyword = ', '.join([repr(arg) for arg in args[1 if spec.is_bound else 0:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
-            arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
-
-            with self.log.reset_output_channels_soon():
-                with self.log(to_stream=self.verbose):
-                    print(f"{spec.name}({arguments}) starting...")
-
-                timer = Timer()
-
-                with self.log(to_stream=True):
-                    with self.log.indentation():
-                        ret = spec.func(*args, **kwargs)
-
-                with self.log(to_stream=self.verbose):
-                    has_repr = spec.class_.__repr__ is not object.__repr__
-                    print(f"{spec.name} finished in {timer} seconds, returning: {repr(ret)}.{f' State of the {spec.class_.__name__} object is: {repr(instance)}' if spec.is_instance and has_repr else ''}")
-
-            return ret
-
-        return spec.wrap(script_wrapper)
-
-
 class ScriptMeta(type):
     """The metaclass driving the Script class' magic behaviour."""
 
-    def __init__(cls, name: str, bases: Any, namespace: dict) -> None:
-        profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
-        cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
+    def __init__(cls: Type[Script], name: str, bases: Any, namespace: dict) -> None:
+        cls.name = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0]
 
         if bases:
             cls._recursively_wrap(item=cls)
-            cls.__init__ = cls._constructor_wrapper(cls.__init__)
+            cls.__init__ = cls._init_wrapper(cls.__init__)
 
-    def _recursively_wrap(cls, item: Any) -> None:
+    def _recursively_wrap(cls: Type[Script], item: Any) -> None:
         for name, val in vars(item).items():
             if cls._is_valid_function_type(val) and (name == "__init__" or not (name.startswith("__") and name.endswith("__"))):
-                setattr(item, name, cls._profiler(FunctionSpec(parent=item, name=name, parent_reference=val)))
+                setattr(item, name, cls._script_wrapper(FunctionSpec(parent=item, name=name, parent_reference=val)))
 
             elif inspect.isclass(val):
                 cls._recursively_wrap(item=val)
 
-    def _constructor_wrapper(cls, func: Callable) -> Callable:
+    def _init_wrapper(cls: Type[Script], func: Callable) -> Callable:
         @functools.wraps(func)
         def init_wrapper(script: Script, **kwargs: Any) -> None:
             script.arguments = kwargs
 
-            if (log_location := pathlib.Path(script.log_location)).is_absolute():
+            if (log_location := pathlib.Path(cls.log_location)).is_absolute():
                 logs_dir = Dir(log_location)
             else:
                 logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).join_dir(log_location)
 
             now = DateTime.now()
-            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(script.name).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
-            script._profiler.log = script.log = NestedPrintLog(log_path)
+            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(cls.name).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
+            cls._log = NestedPrintLog(log_path)
 
             exception = None
 
@@ -149,15 +117,40 @@ class ScriptMeta(type):
                 func(script)
             except Exception as ex:
                 exception = ex
-                script.log.write(traceback.format_exc(), to_stream=False)
+                cls._log.write(traceback.format_exc(), to_stream=False)
 
-            if script.serialize:
-                script.log.file.new_rename(script.log.file.stem, "pkl").content = script
+            if cls.serialize:
+                cls._log.file.new_rename(cls._log.file.stem, "pkl").content = script
 
             if exception is not None:
                 raise exception
 
         return init_wrapper
+
+    def _script_wrapper(cls: Type[Script], spec: FunctionSpec = None) -> Callable:
+        def script_wrapper(*args: Any, **kwargs: Any) -> Any:
+            instance = args[0] if spec.is_instance else None
+            positional, keyword = ', '.join([repr(arg) for arg in args[1 if spec.is_bound else 0:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
+            arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
+
+            with cls._log.reset_output_channels_soon():
+                with cls._log(to_stream=cls.verbose):
+                    print(f"{spec.name}({arguments}) starting...")
+
+                timer = Timer()
+
+                with cls._log(to_stream=True):
+                    with cls._log.indentation():
+                        with Timer() as timer:
+                            ret = spec.func(*args, **kwargs)
+
+                with cls._log(to_stream=cls.verbose):
+                    has_repr = spec.class_.__repr__ is not object.__repr__
+                    print(f"{spec.name} finished in {timer.period} seconds, returning: {repr(ret)}.{f' State of the {spec.class_.__name__} object is: {repr(instance)}' if spec.is_instance and has_repr else ''}")
+
+            return ret
+
+        return spec.wrap(script_wrapper)
 
     def _is_valid_function_type(cls, candidate: Any) -> bool:
         return inspect.isfunction(candidate) or isinstance(candidate, (staticmethod, classmethod))
@@ -166,14 +159,15 @@ class ScriptMeta(type):
 class Script(metaclass=ScriptMeta):
     """
     A Script class intended to be subclassed. Acquires a 'Script.name' attribute based on the stem of the file it is defined in.
-    Performs detailed logging of the execution of the methods (in a call-stack-aware, argument-aware, return-value-aware manner) defined within the class until the contructor returns.
-    All console output will also be logged. The log can be accessed through the 'Script.log' attribute.
+    Performs detailed logging of the execution of the methods (in a call-stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.
+    All console output will also be logged. The log can be accessed through the 'Script._log' attribute.
     Recommended usage is to write the high-level flow control of the script into the constructor, and call other methods from within it.
-    Upon exiting the constructor, the script object itself will be serialized using the pickle protocol.
+    Upon exiting the constructor, the script object itself will be serialized using the pickle protocol if Script.serialize is True.
     """
-    name: str
+    name: str = None
+    _log: NestedPrintLog = None
+
     arguments: Dict[str, Any]
-    log: NestedPrintLog
 
     verbose = serialize = False
     log_location = "/Python/logs"
