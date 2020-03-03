@@ -117,8 +117,9 @@ class ScriptMeta(type):
         profiler = ScriptProfiler(verbose=namespace.get("verbose", False))
         cls.name, cls._profiler = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0], profiler
 
-        cls._recursively_wrap(item=cls)
-        cls.__init__ = cls._constructor_wrapper(cls.__init__)
+        if bases:
+            cls._recursively_wrap(item=cls)
+            cls.__init__ = cls._constructor_wrapper(cls.__init__)
 
     def _recursively_wrap(cls, item: Any) -> None:
         for name, val in vars(item).items():
@@ -130,7 +131,7 @@ class ScriptMeta(type):
 
     def _constructor_wrapper(cls, func: Callable) -> Callable:
         @functools.wraps(func)
-        def init_wrapper(script: Script, *args, **kwargs: Any) -> None:
+        def init_wrapper(script: Script, **kwargs: Any) -> None:
             script.arguments = kwargs
 
             if (log_location := pathlib.Path(script.log_location)).is_absolute():
@@ -145,7 +146,7 @@ class ScriptMeta(type):
             exception = None
 
             try:
-                func(script, *args, **kwargs)
+                func(script)
             except Exception as ex:
                 exception = ex
                 script.log.write(traceback.format_exc(), to_stream=False)
