@@ -137,8 +137,6 @@ class ScriptMeta(type):
                 with cls._log(to_stream=cls.verbose):
                     print(f"{spec.name}({arguments}) starting...")
 
-                timer = Timer()
-
                 with cls._log(to_stream=True):
                     with cls._log.indentation():
                         with Timer() as timer:

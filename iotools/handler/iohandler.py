@@ -10,7 +10,7 @@ from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
 from ..gui.widget import WidgetHandler
-from ..misc.validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
+from ..misc.validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BooleanValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
 from ..misc.config import IoToolsConfig as Config
 
 # TODO: implement argument profiles
@@ -25,9 +25,9 @@ class RunMode(Enum):
 
 class ArgType(ValueEnum):
     """An Enum of the various argument types an IOHandler understands."""
-    STRING, INTEGER, FLOAT, BOOLEAN, LIST, DICT, SET = StringValidator, IntegerValidator, FloatValidator, BoolValidator, ListValidator, DictionaryValidator, SetValidator
+    STRING, BOOLEAN, DATETIME, INTEGER, FLOAT, DECIMAL = StringValidator, BooleanValidator, DateTimeValidator, IntegerValidator, FloatValidator, DecimalValidator
+    LIST, DICT, SET = ListValidator, DictionaryValidator, SetValidator
     PATH, FILE, DIR = PathValidator, FileValidator, DirValidator
-    DATETIME, DECIMAL, FRAME = DateTimeValidator, DecimalValidator, UnknownTypeValidator(Frame)
 
 
 class IOHandler:
@@ -88,7 +88,7 @@ class IOHandler:
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
 
         handler._save_latest_input_config(namespace=namespace)
-        return CallableDict(dictionary=namespace, callback=None if handler.callback is None else handler.callback)
+        return CallableDict(dictionary=namespace, callback=handler.callback)
 
     def show_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Show the output file and/or folder belonging to this IOHandler."""
@@ -100,7 +100,7 @@ class IOHandler:
     def clear_output(self, outfile: bool = True, outdir: bool = True) -> None:
         """Clear the output file and/or folder belonging to this IOHandler."""
         if outfile:
-            self.outfile.content = ""
+            self.outfile.content = None
 
         if outdir:
             self.outdir.clear()

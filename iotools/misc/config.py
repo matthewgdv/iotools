@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from maybe import Maybe
 from subtypes import Dict_
 from pathmagic import PathLike, File, Dir
 from miscutils import executed_within_user_tree
@@ -36,7 +35,7 @@ class Config:
             self.root, self.folder = parent.root, parent.folder.new_dir(self.name)
 
         self.file = self.folder.new_file(name="config", extension="json")
-        self.data: Dict_ = Maybe(self.file.content).else_(Dict_(self.default or {}))
+        self.data: Dict_ = self.file.content or Dict_(self.default or {})
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"

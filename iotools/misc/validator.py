@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Union, List, Callable, Iterable, Optional
+from typing import Any, Union, List, Callable, Iterable, Optional, Type
 import pathlib
 import enum
 import copy
@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Str, List_, Dict_, ValueEnum
+from subtypes import DateTime, Str, List_, Dict_
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -51,7 +51,15 @@ class TypedCollectionMeta(type):
         return newcls
 
 
-class Validator:
+class ValidatorMeta(type):
+    registry = {}
+
+    def __init__(cls: Type[Validator], name: str, bases: tuple, namespace: dict) -> None:
+        if cls.dtype is not None:
+            cls.registry[cls.dtype] = cls
+
+
+class Validator(metaclass=ValidatorMeta):
     """Abstract validator class providing the interface for concrete validators. The most important methods are Validator.is_valid() and Validator.convert()."""
     dtype = None
     converter = None
@@ -160,7 +168,7 @@ class UnknownTypeValidator(Validator):
         return self._constructor(super().convert(value))
 
 
-class BoolValidator(Validator):
+class BooleanValidator(Validator):
     """A validator that can handle booleans."""
     dtype, converter = bool, typepy.Bool
     converter.__name__ = "Boolean"
@@ -273,8 +281,8 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
 class SetValidator(ListValidator):
     """A validator that can handle floating points numbers."""
     class Set(typepy.List):
-        def convert(self) -> float:
-            return float(super().convert())
+        def convert(self) -> set:
+            return set(super().convert())
 
     dtype, converter, _default_generic_type = set, Set, None
 
@@ -285,7 +293,7 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
-        self.key_dtype, self.val_dtype = Maybe(self._default_generic_type).else_((None, None))
+        self.key_dtype, self.val_dtype = self._default_generic_type or (None, None)
 
     def __str__(self) -> str:
         return f"""{super().__str__()}{f"[{', '.join([val.__name__ for val in self._default_generic_type])}]" if self._default_generic_type is not None else ""}"""
@@ -399,25 +407,24 @@ class DirValidator(Validator):
     dtype, converter = pathmagic.Dir, Dir
 
 
-class Validate(ValueEnum):
-    """An class containing all known validators."""
-    Int, Float, Bool, Str, List, Dict, DateTime = IntegerValidator, FloatValidator, BoolValidator, StringValidator, ListValidator, DictionaryValidator, DateTimeValidator
+class Validate:
+    """A class containing all known validators."""
+    Integer, Float, Boolean, String, DateTime = IntegerValidator, FloatValidator, BooleanValidator, StringValidator, DateTimeValidator
+    List, Dict, Set = ListValidator, DictionaryValidator, SetValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
 
     @classmethod
     def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
         """Return a validator appropriate to the dtype passed."""
-        if issubclass_safe(dtype, Validator):
+        if dtype is None:
+            return AnythingValidator(**kwargs)
+        elif issubclass_safe(dtype, Validator):
             return dtype(**kwargs)
         else:
-            dtypes = {member.value.dtype: member.value for member in cls}
-            dtypes.update({None: AnythingValidator})
-            validator = dtypes.get(dtype)
-
-            if validator is not None:
+            if (validator := ValidatorMeta.registry.get(dtype)) is not None:
                 return validator(**kwargs)
             else:
-                for validator_dtype, validator in dtypes.items():
+                for validator_dtype, validator in ValidatorMeta.registry.items():
                     if issubclass_safe(dtype, validator_dtype):
                         return validator(**kwargs)
                 else:

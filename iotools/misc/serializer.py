@@ -19,7 +19,7 @@ from miscutils import cached_property
 from .config import IoToolsConfig as Config
 
 
-class Lost(Singleton):
+class Lost:
     """A class representing a lost object that could not be serialized. Because this object was nested within another lost object, even its class name has been lost."""
 
     def __len__(self) -> int:
@@ -40,6 +40,7 @@ class Lost(Singleton):
 
 class LostObject:
     """A class representing a lost object that could not be serialized."""
+    lost = Lost()
 
     def __init__(self, obj: Any) -> None:
         self.repr = repr(obj)
@@ -60,7 +61,7 @@ class LostObject:
         if name.startswith("__") and name.endswith("__"):
             raise AttributeError(name)
         else:
-            return Lost()
+            return self.lost
 
 
 class Serializer:
