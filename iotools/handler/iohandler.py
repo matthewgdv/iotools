@@ -5,13 +5,13 @@ import sys
 from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple
 
 from maybe import Maybe
-from subtypes import Enum, ValueEnum, Frame, Dict_
+from subtypes import Enum, ValueEnum, Dict_
 from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
-from ..gui.widget import WidgetHandler
-from ..misc.validator import Validate, Condition, Validator, StringValidator, IntegerValidator, FloatValidator, DecimalValidator, BooleanValidator, ListValidator, DictionaryValidator, SetValidator, PathValidator, FileValidator, DirValidator, DateTimeValidator, UnknownTypeValidator
-from ..misc.config import IoToolsConfig as Config
+
+from iotools.gui import widget
+from iotools.misc import Validate, Condition, Validator, IoToolsConfig as Config
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments
@@ -25,9 +25,9 @@ class RunMode(Enum):
 
 class ArgType(ValueEnum):
     """An Enum of the various argument types an IOHandler understands."""
-    STRING, BOOLEAN, DATETIME, INTEGER, FLOAT, DECIMAL = StringValidator, BooleanValidator, DateTimeValidator, IntegerValidator, FloatValidator, DecimalValidator
-    LIST, DICT, SET = ListValidator, DictionaryValidator, SetValidator
-    PATH, FILE, DIR = PathValidator, FileValidator, DirValidator
+    STRING, BOOLEAN, DATETIME, INTEGER, FLOAT, DECIMAL = Validate.String, Validate.Boolean, Validate.DateTime, Validate.Integer, Validate.Float, Validate.Decimal
+    LIST, DICT, SET = Validate.List, Validate.Dict, Validate.Set
+    PATH, FILE, DIR = Validate.Path, Validate.File, Validate.Dir
 
 
 class IOHandler:
@@ -151,7 +151,7 @@ class Argument:
                  choices: Union[Type[Enum], List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None, widget_kwargs: dict = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
-        self.widget: Optional[WidgetHandler] = None
+        self.widget: Optional[widget.WidgetHandler] = None
         self._aliases: Optional[List[str]] = None
 
         self.aliases = aliases

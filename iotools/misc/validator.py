@@ -42,21 +42,21 @@ class Condition:
         return Str(get_short_lambda_source(self.condition)).slice.after_first(r":").strip() if self.condition.__name__ == "<lambda>" else self.condition.__name__
 
 
-class TypedCollectionMeta(type):
-    """A metaclass to drive the use of customizable validators for typed collections."""
-
-    def __getitem__(cls, key: Any) -> TypedCollectionMeta:
-        newcls = copy.deepcopy(cls)
-        newcls._default_generic_type = key
-        return newcls
-
-
 class ValidatorMeta(type):
     registry = {}
 
     def __init__(cls: Type[Validator], name: str, bases: tuple, namespace: dict) -> None:
         if cls.dtype is not None:
             cls.registry[cls.dtype] = cls
+
+
+class TypedCollectionMeta(ValidatorMeta):
+    """A metaclass to drive the use of customizable validators for typed collections."""
+
+    def __getitem__(cls, key: Any) -> TypedCollectionMeta:
+        newcls = copy.deepcopy(cls)
+        newcls._default_generic_type = key
+        return newcls
 
 
 class Validator(metaclass=ValidatorMeta):
@@ -409,9 +409,10 @@ class DirValidator(Validator):
 
 class Validate:
     """A class containing all known validators."""
-    Integer, Float, Boolean, String, DateTime = IntegerValidator, FloatValidator, BooleanValidator, StringValidator, DateTimeValidator
+    String, Boolean, Integer, Float, Decimal, DateTime = StringValidator, BooleanValidator, IntegerValidator, FloatValidator, DecimalValidator, DateTimeValidator
     List, Dict, Set = ListValidator, DictionaryValidator, SetValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
+    Anything, Unknown = AnythingValidator, UnknownTypeValidator
 
     @classmethod
     def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
