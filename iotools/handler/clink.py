@@ -3,7 +3,7 @@ from __future__ import annotations
 import sys
 
 from pathmagic import PathLike, Dir, File
-from ..misc.config import IoToolsConfig, Config
+from iotools.misc import IoToolsConfig, Config
 
 
 class ClinkConfig(Config):

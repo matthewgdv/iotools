@@ -4,13 +4,13 @@ from typing import Any, List, Dict, Tuple, TYPE_CHECKING, cast, Optional
 
 from subtypes import Dict_
 
-from .argsgui import ArgsGui, ArgFrame
 from .argparser import ArgParser
-from ..gui.widget import TabPage
-from ..misc.serializer import LostObject
+
+from iotools.misc import LostObject
 
 if TYPE_CHECKING:
     from .iohandler import IOHandler
+    from iotools.gui.widget import TabPage
 
 
 class Synchronizer:
@@ -40,6 +40,7 @@ class Synchronizer:
         return node.get_namespace_ascending(), node.handler
 
     def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
+        from iotools.gui import ArgsGui
         return ArgsGui(sync=self, values=values, handler=self.determine_chosen_handler(handler)).start().output
 
     def run_from_commandline(self, args: List[str] = None, values: Dict_ = None, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
@@ -62,8 +63,7 @@ class Synchronizer:
 
     def set_widgets_from_last_config_at_current_node(self) -> None:
         """Load the latest valid arguments profile at the current node and set the widgets accordingly."""
-        current = self.current_node
-        last_config = current.handler._load_latest_input_config()
+        last_config = (current := self.current_node).handler._load_latest_input_config()
 
         if last_config is not None:
             current.set_widgets_from_namespace_ascending(last_config)
@@ -117,11 +117,13 @@ class Node:
                 child.add_subparsers_recursively()
 
     def create_widgets_recursively(self) -> None:
+        from iotools.gui import ArgFrame, widget
+
         for arg in self.handler.arguments.values():
             ArgFrame.from_arg(arg).stack()
 
         if self.children:
-            with TabPage(page_names=list(self.children)).stack() as self.page:
+            with widget.TabPage(page_names=list(self.children)).stack() as self.page:
                 for name, child in self.children.items():
                     with self.page[name]:
                         child.create_widgets_recursively()

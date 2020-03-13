@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import string
 import sys
-from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple
+from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple, TYPE_CHECKING
 
 from maybe import Maybe
 from subtypes import Enum, ValueEnum, Dict_
@@ -10,8 +10,11 @@ from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
 
-from iotools.gui import widget
 from iotools.misc import Validate, Condition, Validator, IoToolsConfig as Config
+
+if TYPE_CHECKING:
+    from iotools.gui.widget import WidgetHandler
+
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments
@@ -151,7 +154,7 @@ class Argument:
                  choices: Union[Type[Enum], List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None, widget_kwargs: dict = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
-        self.widget: Optional[widget.WidgetHandler] = None
+        self.widget: Optional[WidgetHandler] = None
         self._aliases: Optional[List[str]] = None
 
         self.aliases = aliases

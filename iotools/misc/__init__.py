@@ -1,7 +1,7 @@
 __all__ = [
     "Console", "SysTrayApp",
     "Log", "PrintLog",
-    "Serializer", "Secrets",
+    "Serializer", "Secrets", "LostObject",
     "Cache",
     "Config", "IoToolsConfig",
     "Validate", "Condition", "Validator",
@@ -10,7 +10,7 @@ __all__ = [
 
 from .console import Console, SysTrayApp
 from .config import Config, IoToolsConfig
-from .serializer import Serializer, Secrets
+from .serializer import Serializer, Secrets, LostObject
 from .cache import Cache
 from .log import Log, PrintLog
 from .validator import Validate, Condition, Validator

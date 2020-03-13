@@ -10,13 +10,14 @@ from subtypes import Dict_
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
-from ..gui.gui import ThreePartGui
-from ..gui.widget import WidgetHandler, Button, Label, DropDown, CheckBar, IntEntry, FloatEntry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
-from ..misc.console import Console
+from .gui import ThreePartGui
+from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, IntEntry, FloatEntry, Text, DateTimeEdit, Table, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
+
+from iotools.misc import Console
 
 if TYPE_CHECKING:
-    from .iohandler import IOHandler, Argument
-    from .synchronizer import Synchronizer
+    from iotools.handler import IOHandler, Argument
+    from iotools.handler.synchronizer import Synchronizer
 
 
 class ArgsGui(ThreePartGui):

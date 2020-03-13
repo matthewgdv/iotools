@@ -13,4 +13,8 @@ __all__ = [
 
 from .misc import Console, SysTrayApp, Config, Serializer, Secrets, Cache, Log, PrintLog, Validate, Script
 from .handler import IOHandler, Argument, RunMode, ArgType
-from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, widget
+
+try:
+    from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, widget
+except ImportError:
+    pass
