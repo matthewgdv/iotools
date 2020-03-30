@@ -31,9 +31,7 @@ class Console:
     UP_ONE_LINE = "\033[A"
     CLEAR_CURRENT_LINE = "\033[2K"
 
-    DEFAULT_STDOUT = sys.stdout
     colorama.init()
-    COLORAMA_STDOUT = sys.stdout
 
     class NoOutput:
         pass
