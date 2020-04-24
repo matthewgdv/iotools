@@ -88,7 +88,7 @@ class Log:
         """Create a new Log from the given arguments."""
         default_log_dir = Dir.from_home().d.documents.new_dir("Python").new_dir("logs")
         logdir = Dir.from_pathlike(Maybe(log_dir).else_(default_log_dir))
-        file = logdir.new_file(f"{log_name}_log_{DateTime.today().to_filetag()}", file_extension)
+        file = logdir.new_file(f"{DateTime.today().to_filetag()}_{log_name}", file_extension)
 
         return cls(file)
 
