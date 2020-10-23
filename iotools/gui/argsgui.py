@@ -6,7 +6,7 @@ from typing import Any, Tuple, TYPE_CHECKING, Optional
 import pandas as pd
 
 from maybe import Maybe
-from subtypes import Dict_
+from subtypes import Dict
 from pathmagic import File, Dir
 from miscutils import issubclass_safe
 
@@ -26,7 +26,7 @@ class ArgsGui(ThreePartGui):
     def __init__(self, sync: Synchronizer, values: dict = None, handler: IOHandler = None) -> None:
         super().__init__(name=sync.root.handler.app_name)
         self.sync = sync
-        self.output: Optional[Tuple[Dict_, IOHandler]] = None
+        self.output: Optional[Tuple[Dict, IOHandler]] = None
 
         self.populate_top_segment()
         self.populate_main_segment(values=values, handler=handler)

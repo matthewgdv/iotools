@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Dict, Tuple, TYPE_CHECKING, cast, Optional
 
-from subtypes import Dict_
+from subtypes import Dict
 
 from .argparser import ArgParser
 
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 class Synchronizer:
     def __init__(self, root_handler: IOHandler) -> None:
-        self.handler_mappings: Dict[IOHandler, Node] = {}
+        self.handler_mappings: dict[IOHandler, Node] = {}
         self.root = Node(root_handler, sync=self)
 
     def __repr__(self) -> str:
@@ -31,7 +31,7 @@ class Synchronizer:
     def current_node(self) -> Node:
         return self.root.get_active_child()
 
-    def run_programatically(self, values: Dict_, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
+    def run_programatically(self, values: Dict, handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
         node = self.handler_mappings[self.determine_chosen_handler(handler)] if handler is not None else self.root
         if values:
             node.set_values_from_namespace_ascending(namespace=values)
@@ -39,11 +39,11 @@ class Synchronizer:
         node.validate_argument_dependencies_ascending()
         return node.get_namespace_ascending(), node.handler
 
-    def run_as_gui(self, values: Dict[str, Any], handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
+    def run_as_gui(self, values: dict[str, Any], handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
         from iotools.gui import ArgsGui
         return ArgsGui(sync=self, values=values, handler=self.determine_chosen_handler(handler)).start().output
 
-    def run_from_commandline(self, args: List[str] = None, values: Dict_ = None, handler: IOHandler = None) -> Tuple[Dict_, IOHandler]:
+    def run_from_commandline(self, args: list[str] = None, values: Dict = None, handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
         self.root.parser = ArgParser(prog=self.root.handler.app_name, description=self.root.handler.app_desc, handler=self.root.handler)
         self.root.parser.add_arguments_from_handler()
         self.root.add_subparsers_recursively()
@@ -138,14 +138,14 @@ class Node:
     def get_active_child(self) -> Node:
         return self if not self.children else self.children[self.page.state].get_active_child()
 
-    def get_topdown_hierarchy_ascending(self, nodes: List[Node] = None) -> List[Node]:
+    def get_topdown_hierarchy_ascending(self, nodes: list[Node] = None) -> list[Node]:
         nodes = [self] if nodes is None else [self, *nodes]
         return nodes if self.parent is None else self.parent.get_topdown_hierarchy_ascending(nodes=nodes)
 
-    def get_namespace(self) -> Dict_:
-        return Dict_({name: argument.value for name, argument in self.handler.arguments.items()})
+    def get_namespace(self) -> Dict:
+        return Dict({name: argument.value for name, argument in self.handler.arguments.items()})
 
-    def get_namespace_ascending(self) -> Dict_:
+    def get_namespace_ascending(self) -> Dict:
         outer_namespace = namespace = self.sync.root.get_namespace()
 
         if self is not self.sync.root:
@@ -155,12 +155,12 @@ class Node:
 
         return outer_namespace
 
-    def set_values_from_namespace(self, namespace: Dict_) -> None:
+    def set_values_from_namespace(self, namespace: Dict) -> None:
         for name, argument in self.handler.arguments.items():
             if name in namespace:
                 argument.value = namespace[name]
 
-    def set_values_from_namespace_ascending(self, namespace: Dict_) -> None:
+    def set_values_from_namespace_ascending(self, namespace: Dict) -> None:
         self.sync.root.set_values_from_namespace(namespace=namespace)
 
         if self is not self.sync.root:
@@ -208,7 +208,7 @@ class Node:
         if self.parent is not None:
             self.parent.validate_argument_dependencies_ascending()
 
-    def set_values_from_widgets_catching_errors_as_warnings_ascending(self) -> List[str]:
+    def set_values_from_widgets_catching_errors_as_warnings_ascending(self) -> list[str]:
         prefix, warnings = "", []
         for node in self.get_topdown_hierarchy_ascending():
             prefix += f"{'.' if prefix else ''}{node.handler.name}"

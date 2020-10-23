@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Str, List_, Dict_
+from subtypes import DateTime, Str, List, Dict
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -67,7 +67,7 @@ class Validator(metaclass=ValidatorMeta):
     def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
         self.nullable, self.use_subtypes = nullable, use_subtypes
         self.choices: Optional[set] = None
-        self.conditions: List[Condition] = []
+        self.conditions: list[Condition] = []
 
         if choices is not None:
             self.set_choices(choices)
@@ -274,8 +274,8 @@ class ListValidator(Validator, metaclass=TypedCollectionMeta):
             validator = Validate.Type(self.val_dtype, nullable=True)
             return [validator(item) for item in super().convert(value)]
 
-    def _to_subtype(self, value: list) -> List_:
-        return List_(value)
+    def _to_subtype(self, value: list) -> List:
+        return List(value)
 
 
 class SetValidator(ListValidator):
@@ -331,8 +331,8 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
             key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
-    def _to_subtype(self, value: dict) -> Dict_:
-        return Dict_(value)
+    def _to_subtype(self, value: dict) -> Dict:
+        return Dict(value)
 
 
 class DateTimeValidator(Validator):

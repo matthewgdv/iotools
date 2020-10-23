@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from subtypes import Dict_
+from subtypes import Dict
 from pathmagic import PathLike, File, Dir
 from miscutils import executed_within_user_tree
 
@@ -35,7 +35,7 @@ class Config:
             self.root, self.folder = parent.root, parent.folder.new_dir(self.name)
 
         self.file = self.folder.new_file(name="config", extension="json")
-        self.data: Dict_ = self.file.content or Dict_(self.default or {})
+        self.data: Dict = self.file.content or Dict(self.default or {})
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
@@ -49,7 +49,7 @@ class Config:
 
     def clear(self) -> None:
         """Clear the the config data. Will not be persisted to the config file until .save() is called on this object."""
-        self.data = Dict_(self.default or {})
+        self.data = Dict(self.default or {})
 
     def import_(self, path: PathLike) -> None:
         """Import the config file at the given path."""

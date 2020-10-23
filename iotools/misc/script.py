@@ -165,7 +165,7 @@ class Script(metaclass=ScriptMeta):
     name: str = None
     _log: NestedPrintLog = None
 
-    arguments: Dict[str, Any]
+    arguments: dict[str, Any]
 
     verbose = serialize = False
     log_location = "/Python/logs"

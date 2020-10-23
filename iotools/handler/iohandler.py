@@ -5,7 +5,7 @@ import sys
 from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple, TYPE_CHECKING
 
 from maybe import Maybe
-from subtypes import Enum, ValueEnum, Dict_
+from subtypes import Enum, ValueEnum, Dict
 from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
@@ -39,14 +39,14 @@ class IOHandler:
     The IOHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
 
-    stack: List[IOHandler] = []
+    stack: list[IOHandler] = []
 
     def __init__(self, app_name: str, app_desc: str = "", run_mode: RunMode = None, callback: Callable = None, subtypes: bool = True, _name: str = None, _parent: IOHandler = None) -> None:
         self.app_name, self.app_desc, self.run_mode, self.callback, self.subtypes, self.name, self.parent = app_name, app_desc, run_mode or RunMode.SMART, callback, subtypes, Maybe(_name).else_("main"), _parent
         self.config = Config() if self.parent is None else self.parent.config
 
-        self.arguments: Dict[str, Argument] = {}
-        self.subcommands: Dict[str, IOHandler] = {}
+        self.arguments: dict[str, Argument] = {}
+        self.subcommands: dict[str, IOHandler] = {}
         self.sync: Optional[Synchronizer] = None
 
         self._remaining_letters = set(string.ascii_lowercase)
@@ -116,7 +116,7 @@ class IOHandler:
             RunMode.SMART: self._run_smart
         })
 
-    def _run_smart(self, *args: Any, **kwargs: Any) -> Tuple[Dict_, IOHandler]:
+    def _run_smart(self, *args: Any, **kwargs: Any) -> Tuple[Dict, IOHandler]:
         if is_running_in_ipython():
             return self.sync.run_programatically(*args, **kwargs)
         else:
@@ -125,10 +125,10 @@ class IOHandler:
             else:
                 return self.sync.run_from_commandline(*args, **kwargs)
 
-    def _save_latest_input_config(self, namespace: Dict_) -> None:
+    def _save_latest_input_config(self, namespace: Dict) -> None:
         self._latest.content = namespace
 
-    def _load_latest_input_config(self) -> Dict[str, Any]:
+    def _load_latest_input_config(self) -> dict[str, Any]:
         if self._latest:
             return self._latest.content
         else:
@@ -151,11 +151,11 @@ class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
     def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, required: bool = None, dependency: Union[Argument, Dependency] = None,
-                 choices: Union[Type[Enum], List[Any]] = None, conditions: Union[Callable, List[Callable], Dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: List[str] = None, widget_kwargs: dict = None) -> None:
+                 choices: Union[Type[Enum], list[Any]] = None, conditions: Union[Callable, list[Callable], dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: list[str] = None, widget_kwargs: dict = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
         self.widget: Optional[WidgetHandler] = None
-        self._aliases: Optional[List[str]] = None
+        self._aliases: Optional[list[str]] = None
 
         self.aliases = aliases
 
@@ -190,15 +190,15 @@ class Argument:
         self._value = self.argtype.convert(val)
 
     @property
-    def aliases(self) -> List[str]:
+    def aliases(self) -> list[str]:
         return self._aliases
 
     @aliases.setter
-    def aliases(self, val: List[str]) -> None:
+    def aliases(self, val: list[str]) -> None:
         self._aliases = [self.name] if val is None else sorted({self.name, *val}, key=len)
 
     @cached_property
-    def commandline_aliases(self) -> List[str]:
+    def commandline_aliases(self) -> list[str]:
         return [f"--{name}" if len(name) > 1 else f"-{name}" for name in self.aliases]
 
     def add(self, handler: IOHandler = None) -> Argument:
@@ -251,11 +251,11 @@ class Nullability:
         return self.truth if self.argument.dependency is None else True
 
 
-class CallableDict(Dict_):
-    settings = Dict_.settings.deepcopy()
+class CallableDict(Dict):
+    settings = Dict.settings.deepcopy()
     settings.recursive = False
 
-    def __init__(self, dictionary: Dict_, callback: Callable = None) -> None:
+    def __init__(self, dictionary: Dict, callback: Callable = None) -> None:
         super().__init__(dictionary)
         self._callback_ = callback
 

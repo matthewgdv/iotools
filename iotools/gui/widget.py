@@ -51,7 +51,7 @@ class WidgetHandler:
         self.layout: Optional[QtWidgets.QLayout] = None
         self.get_state = self.set_state = self.get_text = self.set_text = None  # type: Optional[Callable]
 
-        self.children: List[WidgetHandler] = []
+        self.children: list[WidgetHandler] = []
         self._parent: Any = None
 
     def __repr__(self) -> str:
@@ -299,7 +299,7 @@ class Checkbox(WidgetHandler):
 class CheckBar(HorizontalFrame):
     """A manager class for a list of Checkbox widgets placed into a single widget."""
 
-    def __init__(self, choices: Dict[str, bool] = None, **kwargs: Any) -> None:
+    def __init__(self, choices: dict[str, bool] = None, **kwargs: Any) -> None:
         super().__init__(margins=0)
 
         self.checkboxes = [Checkbox(state=state, text=text) for text, state in choices.items()]
@@ -310,11 +310,11 @@ class CheckBar(HorizontalFrame):
         # self.layout.addStretch()
 
     @property
-    def state(self) -> Dict[str, bool]:
+    def state(self) -> dict[str, bool]:
         return {checkbox.text: checkbox.state for checkbox in self.checkboxes}
 
     @state.setter
-    def state(self, val: Dict[str, bool]) -> None:
+    def state(self, val: dict[str, bool]) -> None:
         for checkbox in self.checkboxes:
             checkbox.state = val[checkbox.text]
 
@@ -322,7 +322,7 @@ class CheckBar(HorizontalFrame):
 class DropDown(WidgetHandler):
     """A manager class for a simple DropDown widget which can display several options."""
 
-    def __init__(self, choices: List[str] = None, state: str = None, **kwargs: Any) -> None:
+    def __init__(self, choices: list[str] = None, state: str = None, **kwargs: Any) -> None:
         super().__init__()
         self.widget = QtWidgets.QComboBox()
         self.get_state, self.set_state = self.widget.currentText, self.widget.setCurrentText
@@ -331,11 +331,11 @@ class DropDown(WidgetHandler):
         self.state = str(state)
 
     @property
-    def choices(self) -> List[str]:
+    def choices(self) -> list[str]:
         return [self.widget.itemText(index) for index in range(self.widget.count())]
 
     @choices.setter
-    def choices(self, val: List[str]) -> None:
+    def choices(self, val: list[str]) -> None:
         self.widget.clear()
         self.widget.insertItems(0, val)
 
@@ -535,11 +535,11 @@ class ProgressBar(WidgetHandler):
 class TabPage(WidgetHandler):
     """A manager class for a simple tabbed page widget which can display multiple frames that can be switched between."""
 
-    def __init__(self, page_names: List[str] = None, state: str = None, page_constructor: Type[WidgetFrame] = VerticalFrame):
+    def __init__(self, page_names: list[str] = None, state: str = None, page_constructor: Type[WidgetFrame] = VerticalFrame):
         super().__init__()
 
         self.widget, self.page_constructor = QtWidgets.QTabWidget(), page_constructor
-        self.pages: Dict[str, WidgetHandler] = {}
+        self.pages: dict[str, WidgetHandler] = {}
 
         for name in page_names:
             self[name] = self.page_constructor()
@@ -604,7 +604,7 @@ class Table(WidgetHandler):
                 self.widget.setItem(row_index, col_index, self.TableItem(str(Maybe(sub_dict[name]).else_(''))))
 
     @property
-    def items(self) -> List[Table.Item]:
+    def items(self) -> list[Table.Item]:
         return [self.Item(
                     {self.widget.horizontalHeaderItem(colnum).text(): (Maybe(self.widget.item(rownum, colnum)).text().else_(None))
                      for colnum in range(self.widget.columnCount())}

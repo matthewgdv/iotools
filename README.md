@@ -13,8 +13,8 @@ The `IOHandler` class
 --------------------
 
 * Api similar to `argparse.ArgumentParser()`. Must be used as a context manager, and while in scope the `Argument.add()` method will act equivalent to `ArgumentParser.add_argument()`.
-* `IOHandler.process()` (equivalent to `ArgumentParser.parse_args()`) returns a `subtypes.Dict_` holding the argument values if no callback is provided to the `IOHandler()`
-  constructor, otherwise it passes on the return value of the callback function, which will be passed a `Dict_` as its single positional argument.
+* `IOHandler.process()` (equivalent to `ArgumentParser.parse_args()`) returns a `subtypes.Dict` holding the argument values if no callback is provided to the `IOHandler()`
+  constructor, otherwise it passes on the return value of the callback function, which will be passed a `Dict` as its single positional argument.
 * Has various run-modes (in the provided `RunMode` `Enum`) `RunMode.SMART` will attempt to choose the appropriate run-mode for the situation.
 * Under `RunMode.COMMANDLINE` argparse is used under-the-hood to process the `sys.argv` arguments, but with additional features and custom-built help interface that is more
   readable (and way prettier!)
@@ -41,8 +41,8 @@ The `Argument` class
     | FLOAT     | float                         | float                                                 |
     | DECIMAL   | decimal.Decimal               | decimal.Decimal                                       |
     | BOOLEAN   | bool                          | bool                                                  |
-    | LIST      | subtypes.List_                | list                                                  |
-    | DICT      | subtypes.Dict_                | dict                                                  |
+    | LIST      | subtypes.List                 | list                                                  |
+    | DICT      | subtypes.Dict                 | dict                                                  |
     | SET       | set                           | set                                                   |
     | PATH      | pathlib.Path                  | pathlib.Path                                          |
     | FILE      | pathmagic.File                | pathmagic.File                                        |
