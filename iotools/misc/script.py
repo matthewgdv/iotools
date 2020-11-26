@@ -4,7 +4,7 @@ import pathlib
 from contextlib import contextmanager
 import functools
 import traceback
-from typing import Dict, Any, Callable, Type
+from typing import Any, Callable, Type
 import inspect
 import os
 
@@ -117,7 +117,8 @@ class ScriptMeta(type):
                 func(script)
             except Exception as ex:
                 exception = ex
-                cls._log.write(traceback.format_exc(), to_stream=False)
+                with cls._log:
+                    cls._log.write(traceback.format_exc(), to_file=True, to_stream=False)
 
             if cls.serialize:
                 cls._log.file.new_rename(cls._log.file.stem, "pkl").content = script
