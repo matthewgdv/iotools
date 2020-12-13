@@ -107,7 +107,7 @@ class SystemTrayGui(Gui):
         self.widget.setContextMenu(self.menu)
         self.widget.setToolTip(self.name)
 
-    def add_option(self, name: str, callback: Callable = None, icon_path: PathLike = None) -> SystemTrayGui:
+    def add_tray_option(self, name: str, callback: Callable, icon_path: PathLike = None) -> SystemTrayGui:
         action = QtWidgets.QAction(QtGui.QIcon(str(File.from_pathlike(icon_path))), name, self.menu) if icon_path is not None else QtWidgets.QAction(name, self.menu)
         action.triggered.connect(callback)
         self.menu.addAction(action)
@@ -123,6 +123,8 @@ class SystemTrayGui(Gui):
         if self.hide_option is not None:
             self.show()
 
+        self.notify(f"Now running in the background.")
+
         self.app = QtWidgets.QApplication([])
         self.app.exec()
 
@@ -130,9 +132,9 @@ class SystemTrayGui(Gui):
 
     def _add_default_options(self) -> None:
         if self.hide_option:
-            self.add_option(name="show/hide", callback=self._trigger, icon_path=File.from_resource(package=res, name="hide_icon", extension="png"))
+            self.add_tray_option(name="show/hide", callback=self._trigger, icon_path=File.from_resource(package=res, name="hide_icon", extension="png"))
 
-        self.add_option(name="quit", callback=self._shutdown, icon_path=File.from_resource(package=res, name="quit_icon", extension="png"))
+        self.add_tray_option(name="quit", callback=self._shutdown, icon_path=File.from_resource(package=res, name="quit_icon", extension="png"))
 
     def _trigger(self) -> None:
         self.hide() if self.isVisible() else self.show()

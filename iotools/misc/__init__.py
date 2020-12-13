@@ -6,6 +6,7 @@ __all__ = [
     "Config", "IoToolsConfig",
     "Validate", "Condition", "Validator",
     "Script",
+    "Schedule",
 ]
 
 from .console import Console, SysTrayApp
@@ -15,3 +16,4 @@ from .cache import Cache
 from .log import Log, PrintLog
 from .validator import Validate, Condition, Validator
 from .script import Script
+from .schedule import Schedule

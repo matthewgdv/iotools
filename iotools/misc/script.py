@@ -120,7 +120,7 @@ class ScriptMeta(type):
                 with cls._log:
                     cls._log.write(traceback.format_exc(), to_file=True, to_stream=False)
 
-            if cls.serialize:
+            if cls.logging_level is cls.Enums.LoggingLevel.ALWAYS_SERIALIZE or (cls.logging_level is cls.Enums.LoggingLevel.SERIALIZE_ON_FAILURE and exception is not None):
                 cls._log.file.new_rename(cls._log.file.stem, "pkl").content = script
 
             if exception is not None:
@@ -163,12 +163,17 @@ class Script(metaclass=ScriptMeta):
     Recommended usage is to write the high-level flow control of the script into the constructor, and call other methods from within it.
     Upon exiting the constructor, the script object itself will be serialized using the pickle protocol if Script.serialize is True.
     """
+    class Enums:
+        class LoggingLevel(Enum):
+            TEXT_ONLY, SERIALIZE_ON_FAILURE, ALWAYS_SERIALIZE = "text_only", "serialize_on_failure", "always_serialize"
+
     name: str = None
     _log: NestedPrintLog = None
 
     arguments: dict[str, Any]
 
-    verbose = serialize = False
+    verbose = False
+    logging_level = Enums.LoggingLevel.TEXT_ONLY
     log_location = "/Python/logs"
 
     def __init__(self, *args, **kwargs: Any) -> None:
