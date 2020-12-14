@@ -9,7 +9,7 @@ from PyQt5 import QtCore
 from PyQt5 import QtWidgets
 
 from maybe import Maybe
-from subtypes import DateTime, Frame
+from subtypes import DateTime, Date, Frame
 from pathmagic import PathLike, Dir
 
 from ..misc.validator import Validate, Validator
@@ -462,7 +462,7 @@ class DirSelect(PathSelect):
 class Calendar(WidgetHandler):
     """A manager class for a simple Calendar widget which directs the user to select a date."""
 
-    def __init__(self, state: Union[DateTime, dt.date] = None, **kwargs: Any) -> None:
+    def __init__(self, state: Union[DateTime, Date] = None, **kwargs: Any) -> None:
         super().__init__()
 
         self.widget = QtWidgets.QCalendarWidget()
@@ -471,12 +471,12 @@ class Calendar(WidgetHandler):
     @property
     def state(self) -> DateTime:
         qdate = self.widget.selectedDate()
-        return DateTime(qdate.year(), qdate.month(), qdate.day())
+        return Date(qdate.year(), qdate.month(), qdate.day())
 
     @state.setter
     def state(self, val: Union[DateTime, dt.date]) -> None:
         if val is None:
-            val = DateTime.today()
+            val = Date.today()
 
         self.widget.setSelectedDate(QtCore.QDate(val.year, val.month, val.day))
 

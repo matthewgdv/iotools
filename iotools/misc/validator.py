@@ -10,7 +10,7 @@ import decimal
 import typepy
 
 from maybe import Maybe
-from subtypes import DateTime, Str, List, Dict
+from subtypes import DateTime, Date, Str, List, Dict
 import pathmagic
 from miscutils import issubclass_safe, get_short_lambda_source
 
@@ -126,7 +126,7 @@ class Validator(metaclass=ValidatorMeta):
                 if not condition(ret):
                     raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
 
-            return ret if not self.use_subtypes else self._to_subtype(ret)
+            return self._to_subtype(ret) if self.use_subtypes else ret
 
     def _to_subtype(self, value: Any) -> Any:
         return value
@@ -337,7 +337,7 @@ class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
 
 class DateTimeValidator(Validator):
     """A validator that can handle datetimes. Returns a subtypes.DateTime instance on Validator.convert(). If a datetime.datetime object is desired, call DateTime.to_datetime()."""
-    dtype, converter = dt.date, typepy.DateTime
+    dtype, converter = dt.datetime, typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
         self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
@@ -349,6 +349,19 @@ class DateTimeValidator(Validator):
 
     def _to_subtype(self, value: dt.datetime) -> DateTime:
         return DateTime.from_datetime(value)
+
+
+class DateValidator(DateTimeValidator):
+    """A validator that can handle dates. Returns a subtypes.Date instance on Validator.convert(). If a datetime.date object is desired, call Date.to_date()."""
+    class Date(typepy.DateTime):
+        def convert(self) -> float:
+            datetime = super().convert()
+            return dt.date(datetime.year, datetime.month, datetime.day)
+
+    dtype, converter = dt.date, Date
+
+    def _to_subtype(self, value: dt.datetime) -> DateTime:
+        return Date.from_date(value)
 
 
 class PathValidator(Validator):
@@ -409,7 +422,8 @@ class DirValidator(Validator):
 
 class Validate:
     """A class containing all known validators."""
-    String, Boolean, Integer, Float, Decimal, DateTime = StringValidator, BooleanValidator, IntegerValidator, FloatValidator, DecimalValidator, DateTimeValidator
+    String, Boolean, Integer, Float, Decimal = StringValidator, BooleanValidator, IntegerValidator, FloatValidator, DecimalValidator
+    DateTime, Date = DateTimeValidator, DateValidator
     List, Dict, Set = ListValidator, DictionaryValidator, SetValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
     Anything, Unknown = AnythingValidator, UnknownTypeValidator

@@ -28,7 +28,8 @@ class RunMode(Enum):
 
 class ArgType(ValueEnum):
     """An Enum of the various argument types an IOHandler understands."""
-    STRING, BOOLEAN, DATETIME, INTEGER, FLOAT, DECIMAL = Validate.String, Validate.Boolean, Validate.DateTime, Validate.Integer, Validate.Float, Validate.Decimal
+    STRING, BOOLEAN, INTEGER, FLOAT, DECIMAL = Validate.String, Validate.Boolean, Validate.Integer, Validate.Float, Validate.Decimal
+    DATETIME, DATE = Validate.DateTime, Validate.Date
     LIST, DICT, SET = Validate.List, Validate.Dict, Validate.Set
     PATH, FILE, DIR = Validate.Path, Validate.File, Validate.Dir
 

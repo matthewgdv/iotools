@@ -136,8 +136,10 @@ class ArgFrame(WidgetHandler):
             return cls(argument=arg, handler=FileSelect(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, Dir):
             return cls(argument=arg, handler=DirSelect(state=arg.default, **arg.widget_kwargs))
-        elif issubclass_safe(dtype, dt.date):
+        elif issubclass_safe(dtype, dt.datetime):
             return cls(argument=arg, handler=DateTimeEdit(state=arg.default, magnitude=arg.magnitude, **arg.widget_kwargs) if arg.magnitude else Calendar(state=arg.default, **arg.widget_kwargs))
+        elif issubclass_safe(dtype, dt.date):
+            return cls(argument=arg, handler=Calendar(state=arg.default, **arg.widget_kwargs))
         elif issubclass_safe(dtype, str) or dtype is None:
             return cls(argument=arg, handler=Text(state=arg.default, magnitude=arg.magnitude, **arg.widget_kwargs))
         elif issubclass_safe(dtype, pd.DataFrame):
