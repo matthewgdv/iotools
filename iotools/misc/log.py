@@ -104,7 +104,7 @@ class PrintLog(Log, StreamReplacerMixin):
         self.to_stream, self.to_file = to_stream, to_file
         return self
 
-    def __enter__(self) -> Log:
+    def __enter__(self) -> PrintLog:
         super().__enter__()
         StreamReplacerMixin.__enter__(self)
         return self

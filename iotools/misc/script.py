@@ -56,6 +56,10 @@ class NestedPrintLog(PrintLog):
         super().__init__(path=path, active=active, to_stream=to_stream, to_file=to_file)
         self.indentation_token, self.indentation_level = indentation_token, 0
 
+    def __enter__(self) -> NestedPrintLog:
+        super().__enter__()
+        return self
+
     def write(self, text: str, to_stream: bool = None, to_file: bool = None, add_newlines: int = 0) -> None:
         """Write the given text to this log's file and to sys.stdout, based on the 'to_console' and 'to_file' attributes set by the constructor. These attributes can be overriden by the arguments in this call."""
         if Maybe(to_stream).else_(self.to_stream):
@@ -109,19 +113,21 @@ class ScriptMeta(type):
 
             now = DateTime.now()
             log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(cls.name).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
-            cls._log = NestedPrintLog(log_path)
+            cls._log = log = NestedPrintLog(log_path)
 
             exception = None
 
-            try:
-                func(script)
-            except Exception as ex:
-                exception = ex
-                with cls._log:
-                    cls._log.write(traceback.format_exc(), to_file=True, to_stream=False)
+            with log:
+                try:
+                    func(script)
+                except Exception as ex:
+                    exception = ex
+                    log.write(traceback.format_exc(), to_file=True, to_stream=False)
+                finally:
+                    PrintLog.write(log, f"\nAt point of exit, the final state of the script object was:\n{script}\n", to_file=True, to_stream=False)
 
             if cls.logging_level is cls.Enums.LoggingLevel.ALWAYS_SERIALIZE or (cls.logging_level is cls.Enums.LoggingLevel.SERIALIZE_ON_FAILURE and exception is not None):
-                cls._log.file.new_rename(cls._log.file.stem, "pkl").content = script
+                log.file.new_rename(cls._log.file.stem, "pkl").content = script
 
             if exception is not None:
                 raise exception
@@ -134,18 +140,13 @@ class ScriptMeta(type):
             positional, keyword = ', '.join([repr(arg) for arg in args[1 if spec.is_bound else 0:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
             arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
 
-            with cls._log.reset_output_channels_soon():
-                with cls._log(to_stream=cls.verbose):
-                    print(f"{spec.name}({arguments}) starting...")
+            cls._log.write(f"{spec.name}({arguments}) starting...\n", to_file=True, to_stream=cls.verbose)
 
-                with cls._log(to_stream=True):
-                    with cls._log.indentation():
-                        with Timer() as timer:
-                            ret = spec.func(*args, **kwargs)
+            with cls._log.indentation():
+                with Timer() as timer:
+                    ret = spec.func(*args, **kwargs)
 
-                with cls._log(to_stream=cls.verbose):
-                    has_repr = spec.class_.__repr__ is not object.__repr__
-                    print(f"{spec.name} finished in {timer.period} seconds, returning: {repr(ret)}.{f' State of the {spec.class_.__name__} object is: {repr(instance)}' if spec.is_instance and has_repr else ''}")
+            cls._log.write(f"{spec.name} finished in {timer.period} seconds, returning: {repr(ret)}.\n", to_file=True, to_stream=cls.verbose)
 
             return ret
 
@@ -161,7 +162,6 @@ class Script(metaclass=ScriptMeta):
     Performs detailed logging of the execution of the methods (in a call-stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.
     All console output will also be logged. The log can be accessed through the 'Script._log' attribute.
     Recommended usage is to write the high-level flow control of the script into the constructor, and call other methods from within it.
-    Upon exiting the constructor, the script object itself will be serialized using the pickle protocol if Script.serialize is True.
     """
     class Enums:
         class LoggingLevel(Enum):

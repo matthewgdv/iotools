@@ -6,7 +6,7 @@ from iotools.misc import Schedule
 from .gui import SystemTrayGui
 
 
-class SysTraySchedule(Schedule):
+class SystemTraySchedule(Schedule):
     scheduler_constructor = QtScheduler
 
     def __init__(self, name: str = "default", on_success: Callable = None, on_failure: Callable = None) -> None:

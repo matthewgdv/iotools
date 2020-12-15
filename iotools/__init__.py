@@ -9,13 +9,13 @@ __all__ = [
     "Validate",
     "Script",
     "widget",
-    "Schedule", "SysTraySchedule"
+    "Schedule", "SystemTraySchedule"
 ]
 
 from .misc import Console, SysTrayApp, Config, Serializer, Secrets, Cache, Log, PrintLog, Validate, Script, Schedule
 from .handler import IOHandler, Argument, RunMode, ArgType
 
 try:
-    from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, widget, SysTraySchedule
+    from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, widget, SystemTraySchedule
 except ImportError:
     pass
