@@ -105,10 +105,10 @@ class ScriptMeta(type):
         @functools.wraps(func)
         def init_wrapper(script: Script, *args: Any, **kwargs: Any) -> None:
             if len(args):
-                if len(args) == 1 and args[0] is None:
-                    script.arguments = None
+                if len(args) == 1:
+                    script.arguments = args[0]
                 else:
-                    raise TypeError(f"{type(script).__name__} may not take positional arguments other than {None}.")
+                    raise TypeError(f"{type(script).__name__} may only take a single positional argument.")
             else:
                 script.arguments = kwargs
 
