@@ -103,8 +103,14 @@ class ScriptMeta(type):
 
     def _init_wrapper(cls: Type[Script], func: Callable) -> Callable:
         @functools.wraps(func)
-        def init_wrapper(script: Script, **kwargs: Any) -> None:
-            script.arguments = kwargs
+        def init_wrapper(script: Script, *args: Any, **kwargs: Any) -> None:
+            if len(args):
+                if len(args) == 1 and args[0] is None:
+                    script.arguments = None
+                else:
+                    raise TypeError(f"{type(script).__name__} may not take positional arguments other than {None}.")
+            else:
+                script.arguments = kwargs
 
             if (log_location := pathlib.Path(cls.log_location)).is_absolute():
                 logs_dir = Dir(log_location)

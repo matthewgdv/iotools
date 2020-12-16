@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import string
 import sys
-from typing import Any, Callable, Dict, List, Union, Optional, Type, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Dict, Union, Optional, Type, Tuple, TYPE_CHECKING
 
 from maybe import Maybe
 from subtypes import Enum, ValueEnum, Dict
@@ -32,6 +32,13 @@ class ArgType(ValueEnum):
     DATETIME, DATE = Validate.DateTime, Validate.Date
     LIST, DICT, SET = Validate.List, Validate.Dict, Validate.Set
     PATH, FILE, DIR = Validate.Path, Validate.File, Validate.Dir
+
+
+class ImplicitNone:
+    pass
+
+
+implicit_none = ImplicitNone()
 
 
 class IOHandler:
@@ -86,7 +93,7 @@ class IOHandler:
         self.subcommands[name] = subcommand
         return subcommand
 
-    def process(self, values: dict = None, handler: IOHandler = None) -> CallableDict:
+    def process(self, values: Union[dict, None, ImplicitNone] = implicit_none, handler: IOHandler = None) -> CallableDict:
         """Collect input using this IOHandler's 'run_mode' and return a CallableDict holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
         namespace, handler = self._choose_handler_method()(values=values, handler=handler)
@@ -117,14 +124,17 @@ class IOHandler:
             RunMode.SMART: self._run_smart
         })
 
-    def _run_smart(self, *args: Any, **kwargs: Any) -> Tuple[Dict, IOHandler]:
-        if is_running_in_ipython():
-            return self.sync.run_programatically(*args, **kwargs)
+    def _run_smart(self, values: Union[dict, ImplicitNone], handler: IOHandler) -> Tuple[Dict, IOHandler]:
+        if values is None or is_running_in_ipython():
+            return self.sync.run_programatically(values=values, handler=handler)
         else:
+            if values is implicit_none:
+                values = None
+
             if not sys.argv[1:]:
-                return self.sync.run_as_gui(*args, **kwargs)
+                return self.sync.run_as_gui(values=values, handler=handler)
             else:
-                return self.sync.run_from_commandline(*args, **kwargs)
+                return self.sync.run_from_commandline(values=values, handler=handler)
 
     def _save_latest_input_config(self, namespace: Dict) -> None:
         self._latest.content = namespace

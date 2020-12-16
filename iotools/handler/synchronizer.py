@@ -31,7 +31,7 @@ class Synchronizer:
     def current_node(self) -> Node:
         return self.root.get_active_child()
 
-    def run_programatically(self, values: Dict, handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
+    def run_programatically(self, values: Dict = None, handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
         node = self.handler_mappings[self.determine_chosen_handler(handler)] if handler is not None else self.root
         if values:
             node.set_values_from_namespace_ascending(namespace=values)
@@ -39,7 +39,7 @@ class Synchronizer:
         node.validate_argument_dependencies_ascending()
         return node.get_namespace_ascending(), node.handler
 
-    def run_as_gui(self, values: dict[str, Any], handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
+    def run_as_gui(self, values: dict[str, Any] = None, handler: IOHandler = None) -> Tuple[Dict, IOHandler]:
         from iotools.gui import ArgsGui
         return ArgsGui(sync=self, values=values, handler=self.determine_chosen_handler(handler)).start().output
 

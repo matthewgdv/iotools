@@ -46,11 +46,11 @@ class Schedule(ReprMixin):
     def every(self) -> Fixed.Selector.Start:
         return Fixed.Selector.Start(Fixed.Settings(schedule=self))
 
-    def _register_relative_interval(self, settings: Relative.Settings, func: Callable, job_id: str = None):
+    def _register_relative_interval(self, settings: Relative.Settings, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None):
         ns = vars(settings)
-        self.scheduler.add_job(func, trigger="interval", start_date=settings.start_time, end_date=settings.end_time, **{name: val for name in TimeUnit.values if (val := ns[name])}, id=job_id or func.__name__)
+        self.scheduler.add_job(func, trigger="interval", args=args, kwargs=kwargs, id=job_id or func.__name__, start_date=settings.start_time, end_date=settings.end_time, **{name: val for name in TimeUnit.values if (val := ns[name])})
 
-    def _register_fixed_interval(self, settings: Fixed.Settings, func: Callable, job_id: str = None) -> None:
+    def _register_fixed_interval(self, settings: Fixed.Settings, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None) -> None:
         if settings.weekday_parts and settings.day_parts:
             raise ValueError(f"Cannot simultaenously provide weekday and ordinal day arguments to a schedule. Use one or the other.")
 
@@ -73,10 +73,10 @@ class Schedule(ReprMixin):
         day = None if not settings.day_parts else ",".join([str(day) for day in settings.day_parts])
 
         if not settings.time_parts:
-            self.scheduler.add_job(func, trigger="cron", year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=None, minute=None, second=None, start_date=start_date, end_date=end_date, id=job_id or func.__name__)
+            self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__, year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=None, minute=None, second=None, start_date=start_date, end_date=end_date)
         else:
             for time in settings.time_parts:
-                self.scheduler.add_job(func, trigger="cron", year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=time.hour, minute=time.minute, second=time.second, start_date=start_date, end_date=end_date, id=job_id or func.__name__)
+                self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__, year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=time.hour, minute=time.minute, second=time.second, start_date=start_date, end_date=end_date)
 
 
 class Fixed:
@@ -266,8 +266,8 @@ class Fixed:
             def __init__(self, settings: Fixed.Settings = None) -> None:
                 self.settings = settings
 
-            def do(self, func: Callable, job_id: str = None) -> Callable:
-                self.settings.schedule._register_fixed_interval(settings=self.settings, func=func, job_id=job_id)
+            def do(self, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None) -> Callable:
+                self.settings.schedule._register_fixed_interval(settings=self.settings, func=func, job_id=job_id, args=args, kwargs=kwargs)
                 return func
 
             def starting(self, datelike: Any) -> Fixed.Interval.Final:
@@ -370,8 +370,8 @@ class Relative:
             def __init__(self, settings: Relative.Settings) -> None:
                 self.settings = settings
 
-            def do(self, func: Callable, job_id: str = None) -> Callable:
-                self.settings.schedule._register_relative_interval(settings=self.settings, func=func, job_id=job_id)
+            def do(self, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None) -> Callable:
+                self.settings.schedule._register_relative_interval(settings=self.settings, func=func, args=args, kwargs=kwargs, job_id=job_id)
                 return func
 
             def starting(self, datelike: Any) -> Relative.Interval.Final:
