@@ -93,10 +93,10 @@ class IOHandler:
         self.subcommands[name] = subcommand
         return subcommand
 
-    def process(self, values: Union[dict, None, ImplicitNone] = implicit_none, handler: IOHandler = None) -> CallableDict:
+    def process(self, values: Union[dict, ImplicitNone] = implicit_none, handler: IOHandler = None) -> CallableDict:
         """Collect input using this IOHandler's 'run_mode' and return a CallableDict holding the parsed arguments, coerced to appropriate python types."""
         self.sync = Synchronizer(root_handler=self)
-        namespace, handler = self._choose_handler_method()(values=values, handler=handler)
+        namespace, handler = self._delegate_to_synchronizer(values=values, handler=handler)
 
         handler._save_latest_input_config(namespace=namespace)
         return CallableDict(dictionary=namespace, callback=handler.callback)
@@ -116,13 +116,17 @@ class IOHandler:
         if outdir:
             self.outdir.clear()
 
-    def _choose_handler_method(self) -> Callable:
-        return RunMode(self.run_mode).map_to({
-            RunMode.COMMANDLINE: self.sync.run_from_commandline,
-            RunMode.GUI: self.sync.run_as_gui,
-            RunMode.PROGRAMMATIC: self.sync.run_programatically,
-            RunMode.SMART: self._run_smart
-        })
+    def _delegate_to_synchronizer(self, values: Union[dict, ImplicitNone], handler: IOHandler) -> Tuple[Dict, IOHandler]:
+        if self.run_mode == RunMode.SMART:
+            return self._run_smart(values=values, handler=handler)
+        else:
+            handler_method = RunMode(self.run_mode).map_to({
+                RunMode.COMMANDLINE: self.sync.run_from_commandline,
+                RunMode.GUI: self.sync.run_as_gui,
+                RunMode.PROGRAMMATIC: self.sync.run_programatically,
+            })
+
+            return handler_method(values=None if values is implicit_none else values, handler=handler)
 
     def _run_smart(self, values: Union[dict, ImplicitNone], handler: IOHandler) -> Tuple[Dict, IOHandler]:
         if values is None or is_running_in_ipython():

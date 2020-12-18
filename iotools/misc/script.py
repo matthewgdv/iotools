@@ -104,7 +104,7 @@ class ScriptMeta(type):
     def _init_wrapper(cls: Type[Script], func: Callable) -> Callable:
         @functools.wraps(func)
         def init_wrapper(script: Script, *args: Any, **kwargs: Any) -> None:
-            if len(args):
+            if args:
                 if len(args) == 1:
                     script.arguments = args[0]
                 else:
