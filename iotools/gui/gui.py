@@ -88,6 +88,10 @@ class HtmlGui(Gui):
 
 
 class SystemTrayGui(Gui):
+    """
+        A GUI used for writing long-running system tray applications. Exposes the same high-level API as the Gui class.
+        """
+
     class NotificationLevel(Enum):
         INFO, WARNING, CRITICAL = "info", "warning", "critical"
 

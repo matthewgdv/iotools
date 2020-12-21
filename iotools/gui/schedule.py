@@ -7,6 +7,17 @@ from .gui import SystemTrayGui
 
 
 class SystemTraySchedule(Schedule):
+    """
+    A class used to specify schedules on which specific Python callables will be executed. Event callbacks can be supplied to be invoked on success
+    or failure.
+
+    Normal usage is to use this class as a context manager, instanciating it in 'with' clause, and specifying the schedules within the
+    'with' block.
+
+    Upon exiting the application will block, a system tray icon will be created, and the schedules will execute until a user exits
+    out of the GUI using the provided system tray menu option.
+    """
+
     scheduler_constructor = QtScheduler
 
     def __init__(self, name: str = "default", on_success: Callable = None, on_failure: Callable = None) -> None:

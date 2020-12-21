@@ -36,11 +36,13 @@ class ArgsGui(ThreePartGui):
 
     def populate_top_segment(self) -> None:
         """Add widget(s) to the title segment."""
+
         with self.top:
             Label(text=self.sync.root.handler.app_desc).stack()
 
     def populate_main_segment(self, values: dict, handler: IOHandler) -> None:
         """Add tabs to the main segment and then widget(s) to each of those tabs."""
+
         with self.main:
             self.sync.create_widgets_recursively()
 
@@ -52,6 +54,7 @@ class ArgsGui(ThreePartGui):
 
     def populate_bottom_segment(self) -> None:
         """Add widget(s) to the button segment."""
+
         with self.bottom:
             Button(text='Latest Config', command=self.sync.set_widgets_from_last_config_at_current_node).stack()
             Button(text='Default Config', command=self.sync.set_widgets_to_defaults_from_current_node_ascending).stack()
@@ -65,6 +68,7 @@ class ArgsGui(ThreePartGui):
 
     def try_to_proceed(self) -> None:
         """Validate that the widgets are providing valid arguments, set the argument values accordingly, and if valid end the event loop."""
+
         if not self.set_arguments_from_widgets():
             Console.print_sep("ERROR: Cannot proceed until the warnings have been resolved...", start_sep=False, stop_length=75)
         else:

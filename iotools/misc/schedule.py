@@ -22,6 +22,11 @@ Month = DateTime.MonthName
 
 
 class Schedule(ReprMixin):
+    """
+    A class used to specify schedules on which specific Python callables will be executed. Event callbacks can be supplied to be invoked on success
+    or failure. By default a blocking scheduler is used, which will enter a blocking main loop upon starting.
+    """
+
     scheduler_constructor = BlockingScheduler
 
     def __init__(self, name: str = "default", on_success: Callable = None, on_failure: Callable = None) -> None:
