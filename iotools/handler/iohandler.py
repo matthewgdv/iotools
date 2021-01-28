@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 # TODO: implement argument profiles
 # TODO: improve dependent arguments
-# TODO: improve smart runmode logic
 
 
 class RunMode(Enum):
@@ -267,9 +266,6 @@ class Nullability:
 
 
 class CallableDict(Dict):
-    settings = Dict.settings.deepcopy()
-    settings.recursive = False
-
     def __init__(self, dictionary: Dict, callback: Callable = None) -> None:
         super().__init__(dictionary)
         self._callback_ = callback
