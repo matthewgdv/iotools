@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import string
 import sys
-from typing import Any, Callable, Dict, Union, Optional, Type, Tuple, TYPE_CHECKING
+from typing import Any, Callable, Union, Optional, Type, Tuple, TYPE_CHECKING
 
 from maybe import Maybe
-from subtypes import Enum, ValueEnum, Dict
+from subtypes import Enum, ValueEnum, Dict, DoNotTranslateMeta
 from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
@@ -265,7 +265,7 @@ class Nullability:
         return self.truth if self.argument.dependency is None else True
 
 
-class CallableDict(Dict):
+class CallableDict(Dict, metaclass=DoNotTranslateMeta):
     def __init__(self, dictionary: Dict, callback: Callable = None) -> None:
         super().__init__(dictionary)
         self._callback_ = callback
