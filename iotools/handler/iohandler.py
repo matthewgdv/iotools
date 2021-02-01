@@ -128,7 +128,7 @@ class IOHandler:
             return handler_method(values=None if values is implicit_none else values, handler=handler)
 
     def _run_smart(self, values: Union[dict, ImplicitNone], handler: IOHandler) -> Tuple[Dict, IOHandler]:
-        if values is not None or is_running_in_ipython():
+        if values or is_running_in_ipython():
             return self.sync.run_programatically(values=values, handler=handler)
         else:
             if values is implicit_none:
