@@ -5,7 +5,7 @@ import sys
 from typing import Any, Callable, Union, Optional, Type, Tuple, TYPE_CHECKING
 
 from maybe import Maybe
-from subtypes import Enum, ValueEnum, Dict, DoNotTranslateMeta
+from subtypes import Enum, Dict, DoNotTranslateMeta
 from miscutils import cached_property, is_running_in_ipython
 
 from .synchronizer import Synchronizer
@@ -25,8 +25,8 @@ class RunMode(Enum):
     SMART, COMMANDLINE, GUI, PROGRAMMATIC = "smart", "commandline", "gui", "programmatic"
 
 
-class ArgType(ValueEnum):
-    """An Enum of the various argument types an IOHandler understands."""
+class ArgType:
+    """A namespace for the various validators corresponding to argument types an IOHandler understands."""
     STRING, BOOLEAN, INTEGER, FLOAT, DECIMAL = Validate.String, Validate.Boolean, Validate.Integer, Validate.Float, Validate.Decimal
     DATETIME, DATE = Validate.DateTime, Validate.Date
     LIST, DICT, SET = Validate.List, Validate.Dict, Validate.Set
@@ -164,7 +164,7 @@ class IOHandler:
 class Argument:
     """Class representing an argument (and its associated metadata) for the IOHandler and ArgsGui to use."""
 
-    def __init__(self, name: str, argtype: Union[type, Callable] = None, default: Any = None, nullable: bool = False, required: bool = None, dependency: Union[Argument, Dependency] = None,
+    def __init__(self, name: str, argtype: Union[type, Callable, Validator] = None, default: Any = None, nullable: bool = False, required: bool = None, dependency: Union[Argument, Dependency] = None,
                  choices: Union[Type[Enum], list[Any]] = None, conditions: Union[Callable, list[Callable], dict[str, Callable]] = None, magnitude: int = None, info: str = None, aliases: list[str] = None, widget_kwargs: dict = None) -> None:
         self.name, self.default, self.magnitude, self.info, self._value, self.widget_kwargs = name, default, magnitude, info, default, widget_kwargs or {}
 
@@ -186,7 +186,7 @@ class Argument:
 
         self.argtype = Validate.Type(argtype, nullable=self.nullable, choices=self.choices)
         if self.conditions:
-            self.argtype.conditions = Maybe(self.conditions).else_([])
+            self.argtype.conditions = self.conditions
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
