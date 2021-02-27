@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Union, List, Callable, Iterable, Optional, Type
+from typing import Any, Union, Callable, Iterable, Optional, Type
 import pathlib
 import enum
-import copy
 import decimal
 
 import typepy
@@ -53,10 +52,19 @@ class ValidatorMeta(type):
 class TypedCollectionMeta(ValidatorMeta):
     """A metaclass to drive the use of customizable validators for typed collections."""
 
-    def __getitem__(cls, key: Any) -> TypedCollectionMeta:
-        newcls = copy.deepcopy(cls)
-        newcls._default_generic_type = key
-        return newcls
+    class TypedCollectionProxy:
+        def __init__(self, cls: Type[CollectionValidator], dtype: Any) -> None:
+            self.cls, self.dtype = cls, dtype
+
+        def __repr__(self) -> str:
+            return repr(self.cls)
+
+        def __call__(self, **kwargs) -> CollectionValidator:
+            return self.cls(deep_type=self.dtype, **kwargs)
+
+    def __getitem__(cls, key: Any) -> TypedCollectionProxy:
+        assert issubclass(cls, CollectionValidator)
+        return cls.TypedCollectionProxy(cls, key)
 
 
 class Validator(metaclass=ValidatorMeta):
@@ -93,9 +101,15 @@ class Validator(metaclass=ValidatorMeta):
         self.conditions.append(Condition(condition=condition, name=name))
         return self
 
+    def add_conditions(self, conditions: Union[list[Callable], dict[str, Callable]]) -> Validator:
+        self.conditions += [Condition(condition=cond, name=name) for name, cond in conditions.items()] if isinstance(conditions, dict) else [Condition(condition=cond) for cond in conditions]
+        return self
+
     def is_valid(self, value: Any) -> bool:
         if value is None:
             return bool(self.nullable)
+
+        value = self._pre_process(value)
 
         if not self.converter(value, strict_level=typepy.StrictLevel.MIN).is_type():
             return False
@@ -114,6 +128,8 @@ class Validator(metaclass=ValidatorMeta):
             else:
                 raise TypeConversionError(self, value)
         else:
+            value = self._pre_process(value)
+
             try:
                 ret = self.converter(value, strict_level=typepy.StrictLevel.MIN).convert()
             except typepy.TypeConversionError:
@@ -131,13 +147,7 @@ class Validator(metaclass=ValidatorMeta):
     def _to_subtype(self, value: Any) -> Any:
         return value
 
-    def _try_eval(self, value: Any) -> Any:
-        if isinstance(value, str):
-            try:
-                value = eval(value, {}, {})
-            except Exception:
-                pass
-
+    def _pre_process(self, value: Any) -> Any:
         return value
 
 
@@ -190,33 +200,22 @@ class StringValidator(Validator):
         return Str(value)
 
 
-class IntegerValidator(Validator):
+class NumericValidator(Validator):
+    def max_value(self, value: int) -> NumericValidator:
+        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
+        return self
+
+    def min_value(self, value: int) -> NumericValidator:
+        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
+        return self
+
+
+class IntegerValidator(NumericValidator):
     """A validator that can handle integers."""
     dtype, converter = int, typepy.Integer
 
-    def max_value(self, value: int) -> IntegerValidator:
-        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
-        return self
 
-    def min_value(self, value: int) -> IntegerValidator:
-        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
-        return self
-
-
-class RealNumberValidator(Validator):
-    """A validator that can handle real numbers."""
-    dtype, converter = float, typepy.RealNumber
-
-    def max_value(self, value: float) -> RealNumberValidator:
-        self.conditions.append(Condition(lambda val: val <= value, name=f"val <= {value}"))
-        return self
-
-    def min_value(self, value: float) -> RealNumberValidator:
-        self.conditions.append(Condition(lambda val: val >= value, name=f"val >= {value}"))
-        return self
-
-
-class FloatValidator(RealNumberValidator):
+class FloatValidator(NumericValidator):
     """A validator that can handle floating points numbers."""
     class Float(typepy.RealNumber):
         def convert(self) -> float:
@@ -225,54 +224,65 @@ class FloatValidator(RealNumberValidator):
     dtype, converter = float, Float
 
 
-class DecimalValidator(RealNumberValidator):
+class DecimalValidator(NumericValidator):
     """A validator that can handle decimal numbers."""
     class Decimal(typepy.RealNumber):
         pass
 
-    dtype, converter = decimal.Decimal, typepy.RealNumber
+    dtype, converter = decimal.Decimal, Decimal
 
 
-class ListValidator(Validator, metaclass=TypedCollectionMeta):
+class CollectionValidator(Validator, metaclass=TypedCollectionMeta):
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Type, Type]) -> None:
+        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
+        self.deep_type = deep_type
+
+    def of_type(self, dtype: Any) -> CollectionValidator:
+        raise NotImplemented
+
+    def _pre_process(self, value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                value = eval(value, {}, {})
+            except Exception:
+                pass
+
+        return value
+
+
+class ListValidator(CollectionValidator):
     """A validator that can handle lists. Item access can be used to create a new validator class that will also validate the type of the list members."""
-    dtype, converter, _default_generic_type = list, typepy.List, None
+    dtype, converter = list, typepy.List
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.val_dtype = self._default_generic_type
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Any, Any] = None) -> None:
+        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes, deep_type=deep_type)
 
     def __str__(self) -> str:
-        return f"""{super().__str__()}{f"[{self._default_generic_type.__name__}]" if self._default_generic_type is not None else ""}"""
+        return f"""{super().__str__()}{f"[{self.deep_type.__name__}]" if self.deep_type is not None else ""}"""
 
     def __getitem__(self, key) -> ListValidator:
         return self.of_type(key)
 
-    def of_type(self, dtype: Any) -> ListValidator:
-        self.val_dtype = dtype
+    def of_type(self, deep_type: Any) -> ListValidator:
+        self.deep_type = deep_type
         return self
 
     def is_valid(self, value: Any) -> bool:
-        value = self._try_eval(value)
-
-        if self.val_dtype is None:
+        if self.deep_type is None:
             return super().is_valid(value)
         else:
             if super().is_valid(value):
-                validator = Validate.Type(self.val_dtype, nullable=True)
+                validator = Validate.Type(self.deep_type, nullable=True)
                 return all([validator.is_valid(item) for item in super().convert(value)])
             else:
                 return False
 
     def convert(self, value: Any) -> Optional[list]:
-        value = self._try_eval(value)
-
-        converted = super().convert(value)
-
-        if converted is None or self.val_dtype is None:
+        if (converted := super().convert(value)) is None or self.deep_type is None:
             return converted
         else:
-            validator = Validate.Type(self.val_dtype, nullable=True)
-            return [validator(item) for item in super().convert(value)]
+            validator = Validate.Type(self.deep_type, nullable=True)
+            return [validator.convert(item) for item in super().convert(value)]
 
     def _to_subtype(self, value: list) -> List:
         return List(value)
@@ -284,51 +294,45 @@ class SetValidator(ListValidator):
         def convert(self) -> set:
             return set(super().convert())
 
-    dtype, converter, _default_generic_type = set, Set, None
+    dtype, converter = set, Set
 
 
-class DictionaryValidator(Validator, metaclass=TypedCollectionMeta):
+class DictionaryValidator(CollectionValidator):
     """A validator that can handle dicts. Item access can be used to create a new validator class that will also validate the type of the dict's keys and values."""
-    dtype, converter, _default_generic_type = dict, typepy.Dictionary, None
+    dtype, converter = dict, typepy.Dictionary
 
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(**kwargs)
-        self.key_dtype, self.val_dtype = self._default_generic_type or (None, None)
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Type, Type] = None) -> None:
+        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes, deep_type=deep_type)
 
     def __str__(self) -> str:
-        return f"""{super().__str__()}{f"[{', '.join([val.__name__ for val in self._default_generic_type])}]" if self._default_generic_type is not None else ""}"""
+        return f"""{super().__str__()}{f"[{', '.join([val.__name__ for val in self.deep_type])}]" if self.deep_type is not None else ""}"""
 
     def __getitem__(self, key) -> DictionaryValidator:
-        key_dtype, val_dtype = key
-        return self.of_types(key_dtype=key_dtype, val_dtype=val_dtype)
+        return self.of_type(key)
 
-    def of_types(self, key_dtype: Any, val_dtype: Any) -> DictionaryValidator:
-        self.key_dtype, self.val_dtype = key_dtype, val_dtype
+    def of_type(self, deep_type: tuple[Any, Any]) -> DictionaryValidator:
+        self.deep_type = deep_type
         return self
 
     def is_valid(self, value: Any) -> bool:
-        value = self._try_eval(value)
-
-        if self.key_dtype is None and self.val_dtype is None:
+        if self.deep_type is None:
             return super().is_valid(value)
         else:
             if super().is_valid(value):
                 converted = super().convert(value)
-                key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
+                key_type, val_type = self.deep_type
+                key_validator, val_validator = Validate.Type(key_type, nullable=True), Validate.Type(val_type, nullable=True)
                 return all([key_validator.is_valid(item) for item in converted.keys()]) and all([val_validator.is_valid(item) for item in converted.values()])
             else:
                 return False
 
     def convert(self, value: Any) -> Optional[dict]:
-        value = self._try_eval(value)
-
-        converted = super().convert(value)
-
-        if converted is None or (self.key_dtype is None and self.val_dtype is None):
+        if (converted := super().convert(value)) is None or (self.deep_type is None):
             return converted
         else:
             converted = super().convert(value)
-            key_validator, val_validator = Validate.Type(self.key_dtype, nullable=True), Validate.Type(self.val_dtype, nullable=True)
+            key_type, val_type = self.deep_type
+            key_validator, val_validator = Validate.Type(key_type, nullable=True), Validate.Type(val_type, nullable=True)
             return {key_validator(key): val_validator(val) for key, val in converted.items()}
 
     def _to_subtype(self, value: dict) -> Dict:
@@ -360,7 +364,7 @@ class DateValidator(DateTimeValidator):
 
     dtype, converter = dt.date, Date
 
-    def _to_subtype(self, value: dt.datetime) -> DateTime:
+    def _to_subtype(self, value: dt.datetime) -> Date:
         return Date.from_date(value)
 
 

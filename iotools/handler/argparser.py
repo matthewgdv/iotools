@@ -7,13 +7,13 @@ from typing import Any, Callable, TYPE_CHECKING
 from subtypes import Frame
 
 if TYPE_CHECKING:
-    from .iohandler import IOHandler, Argument
+    from .arghandler import ArgHandler, Argument
 
 
 class ArgParser(argparse.ArgumentParser):
     """Subclass of argparse.ArgumentParser with its own helptext formatting."""
 
-    def __init__(self, *args: Any, handler: IOHandler = None, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, handler: ArgHandler = None, **kwargs: Any) -> None:
         self.handler = handler
         super().__init__(*args, **kwargs)
 

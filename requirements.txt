@@ -1,3 +1,4 @@
+appdirs
 APScheduler
 dill
 cryptography

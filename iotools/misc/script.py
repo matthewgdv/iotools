@@ -6,15 +6,20 @@ import functools
 import traceback
 from typing import Any, Callable, Type
 import inspect
-import os
+
+import appdirs
 
 from maybe import Maybe
 from subtypes import DateTime, Enum
 from pathmagic import Dir, PathLike
-from miscutils import Timer, executed_within_user_tree, ReprMixin
+from miscutils import ReprMixin, Timer, executed_within_user_tree
 
 from .log import PrintLog
-from ..handler.iohandler import RunMode
+
+
+class Enums:
+    class LoggingLevel(Enum):
+        TEXT_ONLY, SERIALIZE_ON_FAILURE, ALWAYS_SERIALIZE = "text_only", "serialize_on_failure", "always_serialize"
 
 
 class FunctionSpec(ReprMixin):
@@ -76,19 +81,11 @@ class NestedPrintLog(PrintLog):
         yield self
         self.indentation_level -= 1
 
-    @contextmanager
-    def reset_output_channels_soon(self) -> NestedPrintLog:
-        to_stream, to_file = self.to_stream, self.to_file
-        yield self
-        self.to_stream, self.to_file = to_stream, to_file
-
 
 class ScriptMeta(type):
     """The metaclass driving the Script class' magic behaviour."""
 
     def __init__(cls: Type[Script], name: str, bases: Any, namespace: dict) -> None:
-        cls.name = os.path.splitext(os.path.basename(os.path.abspath(inspect.getfile(cls))))[0]
-
         if bases:
             cls._recursively_wrap(item=cls)
             cls.__init__ = cls._init_wrapper(cls.__init__)
@@ -104,36 +101,29 @@ class ScriptMeta(type):
     def _init_wrapper(cls: Type[Script], func: Callable) -> Callable:
         @functools.wraps(func)
         def init_wrapper(script: Script, *args: Any, **kwargs: Any) -> None:
-            if args:
-                if len(args) == 1:
-                    script.arguments = args[0]
-                else:
-                    raise TypeError(f"{type(script).__name__} may only take a single positional argument.")
+            if pathlib.Path(cls.log_location).is_absolute():
+                logs_dir = Dir(cls.log_location)
             else:
-                script.arguments = kwargs
-
-            if (log_location := pathlib.Path(cls.log_location)).is_absolute():
-                logs_dir = Dir(log_location)
-            else:
-                logs_dir = (Dir.from_home() if executed_within_user_tree() else Dir.from_root()).join_dir(log_location)
+                appdata_root = appdirs.user_data_dir() if executed_within_user_tree() else appdirs.site_data_dir()
+                logs_dir = Dir(appdata_root).new_dir("python").join_dir(cls.log_location)
 
             now = DateTime.now()
-            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(cls.name).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
-            cls._log = log = NestedPrintLog(log_path)
+            log_path = logs_dir.new_dir(now.to_isoformat(time=False)).new_dir(cls.__name__).new_file(f"[{now.hour:02d}h {now.minute:02d}m {now.second:02d}s]", "txt")
+            cls.log = log = NestedPrintLog(log_path)
 
             exception = None
 
             with log:
                 try:
-                    func(script)
+                    func(script, *args, **kwargs)
                 except Exception as ex:
                     exception = ex
                     log.write(traceback.format_exc(), to_file=True, to_stream=False)
                 finally:
                     PrintLog.write(log, f"\nAt point of exit, the final state of the script object was:\n{script}\n", to_file=True, to_stream=False)
 
-            if cls.logging_level is cls.Enums.LoggingLevel.ALWAYS_SERIALIZE or (cls.logging_level is cls.Enums.LoggingLevel.SERIALIZE_ON_FAILURE and exception is not None):
-                log.file.new_rename(cls._log.file.stem, "pkl").content = script
+            if cls.logging_level is Enums.LoggingLevel.ALWAYS_SERIALIZE or (cls.logging_level is Enums.LoggingLevel.SERIALIZE_ON_FAILURE and exception is not None):
+                log.file.new_rename(cls.log.file.stem, "pkl").write(script)
 
             if exception is not None:
                 raise exception
@@ -146,13 +136,13 @@ class ScriptMeta(type):
             positional, keyword = ', '.join([repr(arg) for arg in args[1 if spec.is_bound else 0:]]), ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
             arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
 
-            cls._log.write(f"{spec.name}({arguments}) starting...\n", to_file=True, to_stream=cls.verbose)
+            cls.log.write(f"{spec.name}({arguments}) starting...\n", to_file=True, to_stream=cls.verbose)
 
-            with cls._log.indentation():
+            with cls.log.indentation():
                 with Timer() as timer:
                     ret = spec.func(*args, **kwargs)
 
-            cls._log.write(f"{spec.name} finished in {timer.period} seconds, returning: {repr(ret)}.\n", to_file=True, to_stream=cls.verbose)
+            cls.log.write(f"{spec.name} finished in {timer.period} seconds, returning: {repr(ret)}.\n", to_file=True, to_stream=cls.verbose)
 
             return ret
 
@@ -166,36 +156,17 @@ class Script(metaclass=ScriptMeta):
     """
     A Script class intended to be subclassed. Acquires a 'Script.name' attribute based on the stem of the file it is defined in.
     Performs detailed logging of the execution of the methods (in a call-stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.
-    All console output will also be logged. The log can be accessed through the 'Script._log' attribute.
+    All console output will also be logged. The log can be accessed through the 'Script.log' attribute.
     Recommended usage is to write the high-level flow control of the script into the constructor, and call other methods from within it.
     """
-    class Enums:
-        class LoggingLevel(Enum):
-            TEXT_ONLY, SERIALIZE_ON_FAILURE, ALWAYS_SERIALIZE = "text_only", "serialize_on_failure", "always_serialize"
-
-    name: str = None
-    _log: NestedPrintLog = None
-
-    arguments: dict[str, Any]
+    log: NestedPrintLog = None
 
     verbose = False
     logging_level = Enums.LoggingLevel.TEXT_ONLY
-    log_location = "/Python/logs"
+    log_location = "logs"
 
     def __init__(self, *args, **kwargs: Any) -> None:
         pass
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.__dict__.items() if not attr.startswith('_')])})"
-
-    @classmethod
-    def exec_prog(cls, **arguments: Any) -> Script:
-        return cls(run_mode=RunMode.PROGRAMMATIC, **arguments)
-
-    @classmethod
-    def exec_gui(cls, **arguments: Any) -> Script:
-        return cls(run_mode=RunMode.GUI, **arguments)
-
-    @classmethod
-    def exec_cl(cls, **arguments: Any) -> Script:
-        return cls(run_mode=RunMode.COMMANDLINE, **arguments)

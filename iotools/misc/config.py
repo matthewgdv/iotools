@@ -11,7 +11,7 @@ import iotools
 
 class Config:
     """
-    A config class that abstracts away the process of creating, reading from, and writing to, a json config file within an OS-appropriate appdata dir.
+    A config class that abstracts away the process of creating, reading from, and writing to, a json config file within an OS-appropriate appdata folder.
     The directory itself can be accessed through the 'Config.folder' attribute.
     The data held by the config file can be accessed through 'Config.data' attribute, holding a special kind of dictionary that allows its items to be accessed through attribute access.
     Any changes made to this dictionary will not be persisted until Config.save() is called. Config.save() is automatically called upon exiting when this class is used as a context manager.

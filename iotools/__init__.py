@@ -4,7 +4,7 @@ __all__ = [
     "Serializer", "Secrets",
     "Cache",
     "Config",
-    "IOHandler", "Argument", "RunMode", "ArgType", "Validate",
+    "Command", "RunMode", "ArgType",
     "Gui", "HtmlGui", "ThreePartGui", "SystemTrayGui",
     "Validate",
     "Script",
@@ -13,7 +13,7 @@ __all__ = [
 ]
 
 from .misc import Console, SysTrayApp, Config, Serializer, Secrets, Cache, Log, PrintLog, Validate, Script, Schedule
-from .handler import IOHandler, Argument, RunMode, ArgType
+from .handler import Command, RunMode, ArgType
 
 try:
     from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, widget, SystemTraySchedule
