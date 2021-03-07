@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sys
-from typing import Any, Tuple, TYPE_CHECKING, cast, Optional
+from typing import Any, TYPE_CHECKING, cast, Optional
 
 from miscutils import is_running_in_ipython
 from subtypes import Dict
@@ -12,13 +12,13 @@ from .enums import RunMode
 from iotools.misc import LostObject
 
 if TYPE_CHECKING:
-    from .arghandler import ArgHandler
-    from iotools.gui.widget import TabPage
+    from .declarative import CommandHandler
+    from iotools.gui.widget.tab_page import TabPage
 
 
 class Hierarchy:
-    def __init__(self, root_handler: ArgHandler) -> None:
-        self.handler_mappings: dict[ArgHandler, Node] = {}
+    def __init__(self, root_handler: CommandHandler) -> None:
+        self.handler_mappings: dict[CommandHandler, Node] = {}
         self.root = Node(root_handler, hierarchy=self)
 
     def __repr__(self) -> str:
@@ -34,7 +34,7 @@ class Hierarchy:
     def current_node(self) -> Node:
         return self.root.get_active_child()
 
-    def choose_strategy(self, *args: Any, **kwargs: Any) -> ArgHandler:
+    def choose_strategy(self, *args: Any, **kwargs: Any) -> CommandHandler:
         all_kwargs = kwargs
         explicit_none = False
 
@@ -51,7 +51,7 @@ class Hierarchy:
 
                 all_kwargs |= args
             else:
-                raise ValueError(f"May only provide {dict.__name__} or {None}, provided {single_arg}")
+                raise TypeError(f"May only provide {dict.__name__} or {None}, provided {single_arg}")
         else:
             raise ValueError(f"No more than one positional argument may be provided. Provided {len(args)}:\n\n{args}")
 
@@ -70,35 +70,38 @@ class Hierarchy:
                 RunMode.PROGRAMMATIC: self.run_programatically,
             })
 
-        namespace, handler = handler_method(args=all_kwargs)
-        handler.save_latest_input_config(namespace=namespace)
+        node = handler_method(args=all_kwargs)
+        node.handler.save_latest_input_config(namespace=node.get_namespace_ascending())
 
-        for node in self.handler_mappings[handler].get_topdown_hierarchy_ascending():
+        for node in node.get_topdown_hierarchy_ascending():
+            node.handler.post_validate()
+
+        for node in node.get_topdown_hierarchy_ascending():
             if node.handler.callback:
                 node.handler.callback()
 
-        return handler
+        return node.handler
 
-    def run_programatically(self, args: dict = None) -> Tuple[Dict, ArgHandler]:
+    def run_programatically(self, args: dict = None) -> Node:
         node = self.determine_chosen_node(args, strict=True)
         if args:
             node.set_values_from_namespace_ascending(namespace=args)
 
         # node.validate_argument_dependencies_ascending()
-        return node.get_namespace_ascending(), node.handler
+        return node
 
-    def run_as_gui(self, args: dict = None) -> Tuple[Dict, ArgHandler]:
+    def run_as_gui(self, args: dict = None) -> Node:
         from iotools.gui import ArgsGui
-        return ArgsGui(hierarchy=self, args=args, handler=self.determine_chosen_node(args, strict=False).handler).start().output
+        return ArgsGui(hierarchy=self, args=args, handler=self.determine_chosen_node(args, strict=False).handler).start().node
 
-    def run_from_commandline(self, args: dict = None) -> Tuple[Dict, ArgHandler]:
+    def run_from_commandline(self, args: dict = None) -> Node:
         self.root.parser = ArgParser(prog=self.root.handler.name, description=self.root.handler.desc, handler=self.root.handler)
         self.root.parser.add_arguments_from_handler()
         self.root.add_subparsers_recursively()
 
         node = vars(self.root.parser.parse_args()).get("_node_", self.root)
         # node.validate_argument_dependencies_ascending()
-        return node.get_namespace_ascending(), node.handler
+        return node
 
     def determine_chosen_node(self, args: dict, strict: bool) -> Node:
         current_node, current_dict = self.root, args
@@ -124,7 +127,7 @@ class Hierarchy:
     def clear_widget_references_recursively(self) -> None:
         self.root.clear_widget_references_recursively()
 
-    def set_active_tabs_from_handler_ascending(self, handler: ArgHandler) -> None:
+    def set_active_tabs_from_handler_ascending(self, handler: CommandHandler) -> None:
         self.handler_mappings[handler].set_active_tabs_ascending()
 
     def set_widgets_from_last_config_at_current_node(self) -> None:
@@ -143,7 +146,7 @@ class Hierarchy:
 
 
 class Node:
-    def __init__(self, handler: ArgHandler, hierarchy: Hierarchy, parent: Node = None) -> None:
+    def __init__(self, handler: CommandHandler, hierarchy: Hierarchy, parent: Node = None) -> None:
         self.handler, self.parent, self.children, self.hierarchy = handler, parent, {child.name: Node(handler=child, hierarchy=hierarchy, parent=self) for child in handler.subhandlers}, hierarchy
         self.page: Optional[TabPage] = None
         self.parser: Optional[ArgParser] = None

@@ -7,20 +7,21 @@ from typing import Any, Callable, TYPE_CHECKING
 from subtypes import Frame
 
 if TYPE_CHECKING:
-    from .arghandler import ArgHandler, Argument
+    from .declarative import CommandHandler
+    from .argument import Argument
 
 
 class ArgParser(argparse.ArgumentParser):
     """Subclass of argparse.ArgumentParser with its own helptext formatting."""
 
-    def __init__(self, *args: Any, handler: ArgHandler = None, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, handler: CommandHandler = None, **kwargs: Any) -> None:
         self.handler = handler
         super().__init__(*args, **kwargs)
 
     def add_arguments_from_handler(self) -> None:
         self.add_argument("_", nargs="?")
-        for arg in self.handler.arguments.values():
-            self.add_argument(*arg.commandline_aliases, default=arg.default, type=self.validate_and_set(arg), choices=arg.choices, required=arg.required, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
+        for arg in self.handler.arguments:
+            self.add_argument(*arg.aliases, default=arg.default, type=self.validate_and_set(arg), choices=arg.choices, required=arg.required, nargs="?" if arg.nullable else None, help=arg.info, dest=arg.name)
 
     def format_usage(self) -> str:
         formatter = self._get_formatter()
@@ -28,8 +29,12 @@ class ArgParser(argparse.ArgumentParser):
         return str(formatter.format_help())
 
     def format_help(self) -> str:
-        target_cols = ["name", "commandline_aliases", "argtype", "default", "nullable", "info", "choices", "conditions", "dependency"]
-        frame = Frame([arg.__dict__ for arg in self.handler.arguments.values()]).fillna_as_none()
+        target_cols = ["name", "commandline_aliases", "type", "default", "nullable", "info", "choices", "conditions"]
+        frame = Frame(
+            [(arg.name, arg.aliases, arg.validator.dtype.__name__, arg.default, arg.nullable, arg.info, arg.choices, arg.validator.conditions)
+             for arg in self.handler.arguments],
+            columns=target_cols
+        ).fillna_as_none()
 
         frame.argtype = frame.argtype.apply(lambda val: str(val))
         frame.commandline_aliases = frame.commandline_aliases.apply(lambda val: ", ".join([str(alias) for alias in val]))
@@ -56,5 +61,5 @@ class ArgParser(argparse.ArgumentParser):
             argument.value = candidate
             return argument.value
 
-        wrapper.__name__ = argument.argtype.converter.__name__
+        wrapper.__name__ = argument.validator.dtype.__name__
         return wrapper

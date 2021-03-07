@@ -7,18 +7,27 @@ from apscheduler.schedulers.background import BlockingScheduler
 from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 
 from subtypes import Enum, DateTime
-from miscutils import ReprMixin, class_name
+from miscutils import ReprMixin
 
 
-class TimeUnit(Enum):
-    SECONDS, MINUTES, HOURS, DAYS, WEEKS, MONTHS, YEARS = "seconds", "minutes", "hours", "days", "weeks", "months", "years"
+class Enums:
+    class TimeUnit(Enum):
+        SECONDS = MINUTES = HOURS = DAYS = WEEKS = MONTHS = YEARS = Enum.Auto()
 
+    class WeekDay(Enum):
+        MONDAY = TUESDAY = WEDNESDAY = THURSDAY = FRIDAY = SATURDAY = SUNDAY = Enum.Auto()
 
-class WeekDay(Enum):
-    MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY = 0, 1, 2, 3, 4, 5, 6
+    Month = DateTime.MonthName
 
-
-Month = DateTime.MonthName
+    weekday_mappings = {
+        WeekDay.MONDAY: 0,
+        WeekDay.TUESDAY: 1,
+        WeekDay.WEDNESDAY: 2,
+        WeekDay.THURSDAY: 3,
+        WeekDay.FRIDAY: 4,
+        WeekDay.SATURDAY: 5,
+        WeekDay.SUNDAY: 6,
+    }
 
 
 class Schedule(ReprMixin):
@@ -39,8 +48,6 @@ class Schedule(ReprMixin):
         if on_failure is not None:
             self.scheduler.add_listener(callback=on_failure, mask=EVENT_JOB_ERROR)
 
-        # self.scheduler.add_jobstore(SqlalchemyJobStore, self.name)
-
     def __enter__(self) -> Schedule:
         return self
 
@@ -53,7 +60,10 @@ class Schedule(ReprMixin):
 
     def _register_relative_interval(self, settings: Relative.Settings, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None):
         ns = vars(settings)
-        self.scheduler.add_job(func, trigger="interval", args=args, kwargs=kwargs, id=job_id or func.__name__, start_date=settings.start_time, end_date=settings.end_time, **{name: val for name in TimeUnit.values if (val := ns[name])})
+        self.scheduler.add_job(func, trigger="interval", args=args, kwargs=kwargs, id=job_id or func.__name__,
+                               start_date=settings.start_time, end_date=settings.end_time,
+                               seconds=settings.seconds, minutes=settings.minutes, hours=settings.hours,
+                               days=settings.days, weeks=settings.weeks, months=settings.months, years=settings.years)
 
     def _register_fixed_interval(self, settings: Fixed.Settings, func: Callable, args: tuple = None, kwargs: dict = None, job_id: str = None) -> None:
         if settings.weekday_parts and settings.day_parts:
@@ -61,27 +71,31 @@ class Schedule(ReprMixin):
 
         year = month = day = week = None
 
-        if settings.interval == TimeUnit.YEARS:
+        if settings.interval is Enums.TimeUnit.YEARS:
             year = "*"
-        elif settings.interval == TimeUnit.MONTHS:
+        elif settings.interval is Enums.TimeUnit.MONTHS:
             month = "*"
-        elif settings.interval == TimeUnit.WEEKS:
+        elif settings.interval is Enums.TimeUnit.WEEKS:
             week = "*"
-        elif settings.interval == TimeUnit.DAYS:
+        elif settings.interval is Enums.TimeUnit.DAYS:
             day = "*"
         else:
-            raise ValueError(f"Invalid interval value: {settings.interval}.") if isinstance(settings.interval, TimeUnit) else TypeError(f"Invalid interval type: {class_name(settings.interval)}.")
+            raise ValueError(f"Invalid interval value: {settings.interval}.") if isinstance(settings.interval, Enums.TimeUnit) else TypeError(f"Invalid interval type: {type(settings.interval).__name__}.")
 
         start_date, end_date = settings.start_date, settings.end_date
-        day_of_week = None if not settings.weekday_parts else ",".join([str(weekday) for weekday in settings.weekday_parts])
-        month = None if not settings.month_parts else ",".join([str(month) for month in settings.month_parts])
+        day_of_week = None if not settings.weekday_parts else ",".join([str(Enums.weekday_mappings[weekday]) for weekday in settings.weekday_parts])
+        month = None if not settings.month_parts else ",".join([month.name.lower() for month in settings.month_parts])
         day = None if not settings.day_parts else ",".join([str(day) for day in settings.day_parts])
 
         if not settings.time_parts:
-            self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__, year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=None, minute=None, second=None, start_date=start_date, end_date=end_date)
+            self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__,
+                                   year=year, month=month, day=day, week=week, day_of_week=day_of_week,
+                                   hour=None, minute=None, second=None, start_date=start_date, end_date=end_date)
         else:
             for time in settings.time_parts:
-                self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__, year=year, month=month, day=day, week=week, day_of_week=day_of_week, hour=time.hour, minute=time.minute, second=time.second, start_date=start_date, end_date=end_date)
+                self.scheduler.add_job(func, trigger="cron", args=args, kwargs=kwargs, id=job_id or func.__name__,
+                                       year=year, month=month, day=day, week=week, day_of_week=day_of_week,
+                                       hour=time.hour, minute=time.minute, second=time.second, start_date=start_date, end_date=end_date)
 
 
 class Fixed:
@@ -89,13 +103,13 @@ class Fixed:
         def __init__(self, schedule: Schedule) -> None:
             self.schedule = schedule
 
-            self.interval: Optional[TimeUnit] = None
+            self.interval: Optional[Enums.TimeUnit] = None
             self.start_date: Optional[DateTime] = None
             self.end_date: Optional[DateTime] = None
 
-            self.month_parts: List[Month] = []
+            self.month_parts: List[Enums.Month] = []
             self.day_parts: List[int] = []
-            self.weekday_parts: List[WeekDay] = []
+            self.weekday_parts: List[Enums.WeekDay] = []
             self.time_parts: List[dt.time] = []
 
         def as_dict(self) -> dict:
@@ -111,68 +125,68 @@ class Fixed:
 
             @property
             def january(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.JANUARY)
+                self._set_month(Enums.Month.JANUARY)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def february(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.FEBRUARY)
+                self._set_month(Enums.Month.FEBRUARY)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def march(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.MARCH)
+                self._set_month(Enums.Month.MARCH)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def april(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.APRIL)
+                self._set_month(Enums.Month.APRIL)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def may(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.MAY)
+                self._set_month(Enums.Month.MAY)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def june(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.JUNE)
+                self._set_month(Enums.Month.JUNE)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def july(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.JULY)
+                self._set_month(Enums.Month.JULY)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def august(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.AUGUST)
+                self._set_month(Enums.Month.AUGUST)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def september(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.SEPTEMBER)
+                self._set_month(Enums.Month.SEPTEMBER)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def october(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.OCTOBER)
+                self._set_month(Enums.Month.OCTOBER)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def november(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.NOVEMBER)
+                self._set_month(Enums.Month.NOVEMBER)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
             @property
             def december(self) -> Fixed.Interval.ChainableMonth:
-                self._set_month(Month.DECEMBER)
+                self._set_month(Enums.Month.DECEMBER)
                 return Fixed.Interval.ChainableMonth(settings=self.settings)
 
-            def _set_month(self, month: Month) -> None:
+            def _set_month(self, month: Enums.Month) -> None:
                 self.settings.month_parts.append(month)
                 if self.settings.interval is None:
-                    self.settings.interval = TimeUnit.YEARS
+                    self.settings.interval = Enums.TimeUnit.YEARS
 
         class Month(Base, MonthMixin):
             pass
@@ -182,43 +196,43 @@ class Fixed:
 
             @property
             def monday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.MONDAY)
+                self._set_weekday(Enums.WeekDay.MONDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def tuesday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.TUESDAY)
+                self._set_weekday(Enums.WeekDay.TUESDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def wednesday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.WEDNESDAY)
+                self._set_weekday(Enums.WeekDay.WEDNESDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def thursday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.THURSDAY)
+                self._set_weekday(Enums.WeekDay.THURSDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def friday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.FRIDAY)
+                self._set_weekday(Enums.WeekDay.FRIDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def saturday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.SATURDAY)
+                self._set_weekday(Enums.WeekDay.SATURDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
             @property
             def sunday(self) -> Fixed.Interval.ChainableWeekDay:
-                self._set_weekday(WeekDay.SUNDAY)
+                self._set_weekday(Enums.WeekDay.SUNDAY)
                 return Fixed.Interval.ChainableWeekDay(settings=self.settings)
 
-            def _set_weekday(self, weekday: WeekDay) -> None:
+            def _set_weekday(self, weekday: Enums.WeekDay) -> None:
                 self.settings.weekday_parts.append(weekday)
                 if self.settings.interval is None:
-                    self.settings.interval = TimeUnit.WEEKS
+                    self.settings.interval = Enums.TimeUnit.WEEKS
 
         class Weekday(Base, WeekdayMixin):
             pass
@@ -248,22 +262,22 @@ class Fixed:
 
             @property
             def day(self) -> Fixed.Interval.Day:
-                self.settings.interval = TimeUnit.DAYS
+                self.settings.interval = Enums.TimeUnit.DAYS
                 return Fixed.Interval.Day(settings=self.settings)
 
             @property
             def week(self) -> Fixed.Interval.Month:
-                self.settings.interval = TimeUnit.WEEKS
+                self.settings.interval = Enums.TimeUnit.WEEKS
                 return Fixed.Interval.Month(settings=self.settings)
 
             @property
             def month(self) -> Fixed.Interval.Month:
-                self.settings.interval = TimeUnit.MONTHS
+                self.settings.interval = Enums.TimeUnit.MONTHS
                 return Fixed.Interval.Month(settings=self.settings)
 
             @property
             def year(self) -> Fixed.Interval.Year:
-                self.settings.interval = TimeUnit.YEARS
+                self.settings.interval = Enums.TimeUnit.YEARS
                 return Fixed.Interval.Year(settings=self.settings)
 
     class Interval:

@@ -6,7 +6,7 @@ cursor
 readchar
 colorama
 infi.systray
-PyQt5
+PySide6
 maybe-else
 pandas
 pathmagic

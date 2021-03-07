@@ -1,28 +1,28 @@
 from __future__ import annotations
 
-from typing import Any, Tuple, TYPE_CHECKING, Optional
-
-from maybe import Maybe
-from subtypes import Dict
+from typing import Any, TYPE_CHECKING, Optional
 
 from .gui import ThreePartGui
-from .widget import WidgetHandler, Button, Label, DropDown, CheckBar, IntEntry, FloatEntry, Text, DateTimeEdit, Calendar, ListTable, DictTable, FileSelect, DirSelect, HorizontalGroupBox
+from .widget.base import WidgetHandler
+from .widget.button import Button
+from .widget.label import Label
+from .widget.group_box import HorizontalGroupBox
 
 from iotools.misc import Console
 
 if TYPE_CHECKING:
-    from iotools.handler import ArgHandler
-    from iotools.handler.argument import Argument
-    from iotools.handler.hierarchy import Hierarchy
+    from iotools.command.declarative import CommandHandler
+    from iotools.command.argument import Argument
+    from iotools.command.hierarchy import Hierarchy, Node
 
 
 class ArgsGui(ThreePartGui):
-    """A class that dynamically generates an argument selection GUI upon instantiation, given an ArgHandler."""
+    """A class that dynamically generates an argument selection GUI upon instantiation, given an CommandHandler."""
 
-    def __init__(self, hierarchy: Hierarchy, args: dict = None, handler: ArgHandler = None) -> None:
+    def __init__(self, hierarchy: Hierarchy, args: dict = None, handler: CommandHandler = None) -> None:
         super().__init__(name=hierarchy.root.handler.name)
         self.hierarchy = hierarchy
-        self.output: Optional[Tuple[Dict, ArgHandler]] = None
+        self.node: Optional[Node] = None
 
         self.populate_top_segment()
         self.populate_main_segment(args=args, handler=handler)
@@ -36,7 +36,7 @@ class ArgsGui(ThreePartGui):
         with self.top:
             Label(text=self.hierarchy.root.handler.desc).stack()
 
-    def populate_main_segment(self, args: dict, handler: ArgHandler) -> None:
+    def populate_main_segment(self, args: dict, handler: CommandHandler) -> None:
         """Add tabs to the main segment and then widget(s) to each of those tabs."""
 
         with self.main:
@@ -81,13 +81,17 @@ class ArgsGui(ThreePartGui):
             Console.print_sep("\n".join(warnings), start_sep=False, stop_length=75)
             self.validation_label.state = "Validation Failed!"
             self.validation_label.widget.setToolTip("\n".join(warnings))
+
             return False
         else:
-            node = self.hierarchy.current_node
-            self.output = node.get_namespace_ascending(), node.handler
-            Console.print_sep(f"VALIDATION PASSED\nThe following arguments will be passed to '{self.hierarchy.root.handler.name}':\n{self.output[0]}", start_sep=False, stop_length=75)
+            self.node = self.hierarchy.current_node
+            namespace = self.node.get_namespace_ascending()
+            dotted_path = ".".join(node.handler.name for node in self.node.get_topdown_hierarchy_ascending())
+            Console.print_sep(f"VALIDATION PASSED\nThe following arguments will be passed to '{dotted_path}':\n{namespace}", start_sep=False, stop_length=75)
+
             self.validation_label.state = "Validation Passed!"
-            self.validation_label.widget.setToolTip(str(self.output[0]))
+            self.validation_label.widget.setToolTip(str(namespace))
+
             return True
 
 
@@ -121,31 +125,4 @@ class ArgFrame(WidgetHandler):
     @classmethod
     def from_arg(cls, arg: Argument) -> ArgFrame:
         """Create an ArgFrame from the given argument, inferring a WidgetHandler type for it, and setting it up."""
-        from iotools.handler import ArgType
-
-        if arg.choices is not None:
-            return cls(argument=arg, handler=DropDown(choices=arg.choices, state=arg.default))
-        elif isinstance(arg, ArgType.Dict) and arg.validator.deep_type == (str, bool):
-            return cls(argument=arg, handler=CheckBar(choices=arg.default))
-        elif isinstance(arg, ArgType.Boolean):
-            return cls(argument=arg, handler=Button(state=Maybe(arg.default).else_(False)))
-        elif isinstance(arg, ArgType.Integer):
-            return cls(argument=arg, handler=IntEntry(state=arg.default))
-        elif isinstance(arg, ArgType.Float):
-            return cls(argument=arg, handler=FloatEntry(state=arg.default))
-        elif isinstance(arg, ArgType.File):
-            return cls(argument=arg, handler=FileSelect(state=arg.default))
-        elif isinstance(arg, ArgType.Dir):
-            return cls(argument=arg, handler=DirSelect(state=arg.default))
-        elif isinstance(arg, ArgType.DateTime):
-            return cls(argument=arg, handler=DateTimeEdit(state=arg.default, magnitude=arg.widget_magnitude) if arg.widget_magnitude else Calendar(state=arg.default))
-        elif isinstance(arg, ArgType.Date):
-            return cls(argument=arg, handler=Calendar(state=arg.default))
-        elif isinstance(arg, ArgType.String):
-            return cls(argument=arg, handler=Text(state=arg.default, magnitude=arg.widget_magnitude))
-        elif isinstance(arg, ArgType.List):
-            return cls(argument=arg, handler=ListTable(state=arg.default, val_dtype=arg.validator.deep_type))
-        elif isinstance(arg, ArgType.Dict):
-            return cls(argument=arg, handler=DictTable(state=arg.default, key_dtype=arg.validator.deep_type[0], val_dtype=arg.validator.deep_type[1]))
-        else:
-            raise TypeError(f"Don't know how to handle {type(arg).__name__}: {arg}")
+        return cls(argument=arg, handler=Widget.from_argument(arg=arg))

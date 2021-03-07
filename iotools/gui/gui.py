@@ -4,13 +4,18 @@ import sys
 import types
 from typing import Any, Type, Callable, Collection, cast
 
-from PyQt5 import QtWidgets
-from PyQt5 import QtGui
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 from subtypes import Enum
 from pathmagic import File, PathLike
 
-from .widget import Label, Button, HtmlDisplay, ProgressBar, WidgetFrame, HorizontalFrame, VerticalFrame
+from .widget.label import Label
+from .widget.button import Button
+from .widget.html import HtmlDisplay
+from .widget.progress import ProgressBar
+from .widget.frame import WidgetFrame, HorizontalFrame, VerticalFrame
+
 from iotools import res
 
 # TODO: Add extra features to Gui (such as menu bar, toolbars, status bar, etc.)
@@ -21,9 +26,9 @@ res = cast(types.ModuleType, res)
 class Gui(QtWidgets.QMainWindow):
     """
     A Gui class that abstracts most of the PyQt5 internals behind a consistent API.
-    Widgets can be stacked onto a parent by calling WidgetHandler.stack() while within the context of their parent (a WidgetFrame or a Gui).
+    Widgets can be stacked onto a parent by calling WidgetHandler._stack() while within the context of their parent (a Item or a Gui).
     """
-    app, stack = QtWidgets.QApplication([]), []
+    app, _stack = QtWidgets.QApplication([]), []
 
     def __init__(self, name: str = None, central_widget_class: Type[WidgetFrame] = VerticalFrame, on_close: Callable = sys.exit):
         super().__init__()
@@ -36,17 +41,19 @@ class Gui(QtWidgets.QMainWindow):
         if name is not None:
             self.setWindowTitle(name), self.app.setApplicationName(name), self.app.setApplicationDisplayName(name)
 
+        self.setWindowIcon(QtGui.QIcon(str(File.from_resource(package=res, name="python_icon", extension="ico"))))
+
     def __enter__(self) -> Gui:
-        Gui.stack.append(self.central)
+        Gui._stack.append(self.central)
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        Gui.stack.pop(-1)
+        Gui._stack.pop(-1)
 
     def start(self) -> Gui:
         """Begin the event loop. Will block until 'Gui.end_loop()' is called."""
         self.show()
-        self.app.exec()
+        self.app.exec_()
 
         return self
 
@@ -69,7 +76,7 @@ class ThreePartGui(Gui):
         with self:
             self.top, self.main, self.bottom = HorizontalFrame(margins=0).stack(), VerticalFrame(margins=0).stack(), HorizontalFrame(margins=0).stack()
 
-            vertical_fixed = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Fixed)
+            vertical_fixed = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
             self.top.widget.setSizePolicy(vertical_fixed), self.bottom.widget.setSizePolicy(vertical_fixed)
 
     def start(self) -> ThreePartGui:
@@ -93,7 +100,7 @@ class SystemTrayGui(Gui):
         """
 
     class NotificationLevel(Enum):
-        INFO, WARNING, CRITICAL = "info", "warning", "critical"
+        INFO = WARNING = CRITICAL = Enum.Auto()
 
     notification_mappings = {
         NotificationLevel.INFO: 1,
@@ -112,7 +119,7 @@ class SystemTrayGui(Gui):
         self.widget.setToolTip(self.name)
 
     def add_tray_option(self, name: str, callback: Callable, icon_path: PathLike = None) -> SystemTrayGui:
-        action = QtWidgets.QAction(QtGui.QIcon(str(File.from_pathlike(icon_path))), name, self.menu) if icon_path is not None else QtWidgets.QAction(name, self.menu)
+        action = QtGui.QAction(QtGui.QIcon(str(File.from_pathlike(icon_path))), name, self.menu) if icon_path is not None else QtGui.QAction(name, self.menu)
         action.triggered.connect(callback)
         self.menu.addAction(action)
 
@@ -130,7 +137,7 @@ class SystemTrayGui(Gui):
         self.notify(f"Now running in the background.")
 
         self.app = QtWidgets.QApplication([])
-        self.app.exec()
+        self.app.exec_()
 
         return self
 

@@ -11,9 +11,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import dill
-from pathmagic import File
 
-from subtypes import Singleton
+from pathmagic import File
 from miscutils import cached_property
 
 from .config import IoToolsConfig as Config
@@ -153,7 +152,7 @@ class UnpickleableItemHelper:
             obj.clear()
             obj.update(new_dict)
         elif isinstance(obj, Mapping):
-            new = type(obj)({self.recursively_strip_invalid(key): self.recursively_strip_invalid(val) for key, val in obj.items()})
+            new = type(obj)({self.recursively_strip_invalid(key) : self.recursively_strip_invalid(val) for key, val in obj.items()})
             for key, val in self.seen.items():
                 if val is obj:
                     self.seen[key] = new

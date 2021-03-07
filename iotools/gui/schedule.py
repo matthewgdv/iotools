@@ -1,9 +1,39 @@
-from typing import Callable, Any
+from typing import Callable, Any, Optional
 
-from apscheduler.schedulers.qt import QtScheduler
+from apscheduler.schedulers.base import BaseScheduler
+from PySide6.QtCore import QTimer
 
 from iotools.misc import Schedule
 from .gui import SystemTrayGui
+
+
+class QtScheduler(BaseScheduler):
+    """A scheduler that runs in a Qt event loop."""
+
+    _timer: Optional[QTimer] = None
+
+    def wakeup(self):
+        self._start_timer(0)
+
+    def shutdown(self, *args, **kwargs):
+        super().shutdown(*args, **kwargs)
+        self._stop_timer()
+
+    def _start_timer(self, wait_seconds):
+        self._stop_timer()
+        if wait_seconds is not None:
+            wait_time = min(wait_seconds*1000, 2147483647)
+            self._timer = QTimer.singleShot(wait_time, self._process_jobs)
+
+    def _stop_timer(self):
+        if self._timer:
+            if self._timer.isActive():
+                self._timer.stop()
+            del self._timer
+
+    def _process_jobs(self):
+        wait_seconds = super()._process_jobs()
+        self._start_timer(wait_seconds)
 
 
 class SystemTraySchedule(Schedule):

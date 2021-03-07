@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import sys
 import contextlib
-import functools
 import types
 from typing import Any, Collection, Set, Callable, cast, TypeVar
 import ctypes
@@ -221,29 +220,3 @@ class SysTrayApp:
     def _kill(systray: Any) -> None:
         Console.show_console()
         raise KeyboardInterrupt("The app was closed using the system tray's 'quit' option.")
-
-
-class Colorama:
-    """Context manager/decorator class used to initialize and deinitialize colorama."""
-
-    def __init__(self) -> None:
-        self.colorama = colorama
-
-    def __call__(self, func: FuncSig = None) -> FuncSig:
-        @functools.wraps(func)
-        def wrapper(*args: Any, **kwargs: Any) -> Any:
-            with type(self)():
-                ret = func(*args, **kwargs)
-            return ret
-
-        return cast(FuncSig, wrapper)
-
-    def __enter__(self) -> Colorama:
-        self.previous = sys.stdout
-        sys.stdout = Console.DEFAULT_STDOUT
-        colorama.init()
-        return self
-
-    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        colorama.deinit()
-        sys.stdout = self.previous

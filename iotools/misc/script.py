@@ -19,28 +19,28 @@ from .log import PrintLog
 
 class Enums:
     class LoggingLevel(Enum):
-        TEXT_ONLY, SERIALIZE_ON_FAILURE, ALWAYS_SERIALIZE = "text_only", "serialize_on_failure", "always_serialize"
+        TEXT_ONLY = SERIALIZE_ON_FAILURE = ALWAYS_SERIALIZE = Enum.Auto()
+
+    class FunctionType(Enum):
+        INSTANCE = STATIC = CLASS = UNKNOWN = Enum.Auto()
 
 
 class FunctionSpec(ReprMixin):
-    class FunctionType(Enum):
-        INSTANCE, STATIC, CLASS, UNKNOWN = "instance", "static", "class", "unknown"
-
     def __init__(self, parent: Any, name: str, parent_reference: Any) -> None:
         self.class_, self.name, self.func = parent, f"{parent.__name__}.{name}", parent_reference if (ref_is_func := inspect.isfunction(parent_reference)) else parent_reference.__func__
 
         if ref_is_func:
-            self.type = self.FunctionType.INSTANCE
+            self.type = Enums.FunctionType.INSTANCE
         elif isinstance(parent_reference, staticmethod):
-            self.type = self.FunctionType.STATIC
+            self.type = Enums.FunctionType.STATIC
         elif isinstance(parent_reference, classmethod):
-            self.type = self.FunctionType.CLASS
+            self.type = Enums.FunctionType.CLASS
         else:
-            self.type = self.FunctionType.UNKNOWN
+            self.type = Enums.FunctionType.UNKNOWN
 
-        self.is_static = self.type == self.FunctionType.STATIC
-        self.is_instance = self.type == self.FunctionType.INSTANCE
-        self.is_class = self.type == self.FunctionType.CLASS
+        self.is_static = self.type == Enums.FunctionType.STATIC
+        self.is_instance = self.type == Enums.FunctionType.INSTANCE
+        self.is_class = self.type == Enums.FunctionType.CLASS
         self.is_bound = self.is_instance or self.is_class
 
     def wrap(self, func: Callable) -> Any:
@@ -155,7 +155,7 @@ class ScriptMeta(type):
 class Script(metaclass=ScriptMeta):
     """
     A Script class intended to be subclassed. Acquires a 'Script.name' attribute based on the stem of the file it is defined in.
-    Performs detailed logging of the execution of the methods (in a call-stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.
+    Performs detailed logging of the execution of the methods (in a call-_stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.
     All console output will also be logged. The log can be accessed through the 'Script.log' attribute.
     Recommended usage is to write the high-level flow control of the script into the constructor, and call other methods from within it.
     """
