@@ -17,7 +17,7 @@ class Enums:
     class WeekDay(Enum):
         MONDAY = TUESDAY = WEDNESDAY = THURSDAY = FRIDAY = SATURDAY = SUNDAY = Enum.Auto()
 
-    Month = DateTime.MonthName
+    Month = DateTime.Month
 
     weekday_mappings = {
         WeekDay.MONDAY: 0,

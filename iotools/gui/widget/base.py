@@ -36,6 +36,9 @@ class WidgetHandler(ReprMixin, metaclass=PostInitMeta):
         self._registry[self.widget] = self
         self._configure()
 
+        if not self.tooltip:
+            self.tooltip = ""
+
     def __repr__(self) -> str:
         return f"""{type(self).__name__}(parent={self._parent}, children={f"[{', '.join([str(child) for child in self.children])}]" if self.children else None})"""
 
@@ -55,9 +58,9 @@ class WidgetHandler(ReprMixin, metaclass=PostInitMeta):
     def state(self) -> Any:
         """A property controlling the state of the widget, e.g. a bool for a checkbox widget, a string for a textedit widget etc."""
         if self.argument is None:
-            return self._get_state()
+            return self._get_state() if self.active else None
         else:
-            self.argument.value = state = self._get_state()
+            self.argument.value = state = self._get_state() if self.active else None
             return state
 
     @state.setter

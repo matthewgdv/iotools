@@ -1,6 +1,6 @@
 __all__ = [
+    "Log", "PrintLog", "IndentationPrintLog", "StackFramePrintLog", "IndentationPrintLog", "StackFramePrintLog",
     "Console", "SysTrayApp",
-    "Log", "PrintLog",
     "Serializer", "Secrets",
     "Cache",
     "Config",
@@ -12,10 +12,7 @@ __all__ = [
     "Schedule", "SystemTraySchedule"
 ]
 
-from .misc import Console, SysTrayApp, Config, Serializer, Secrets, Cache, Log, PrintLog, Validate, Script, Schedule
+from .log import Log, PrintLog, IndentationPrintLog, StackFramePrintLog, IndentationPrintLog, StackFramePrintLog
+from .misc import Console, SysTrayApp, Config, Serializer, Secrets, Cache, Validate, Script, Schedule
 from .command import Command, RunMode, ArgType
-
-try:
-    from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, Widget, SystemTraySchedule
-except ImportError:
-    pass
+from .gui import Gui, HtmlGui, ThreePartGui, SystemTrayGui, Widget, SystemTraySchedule

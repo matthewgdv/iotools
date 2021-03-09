@@ -11,7 +11,7 @@ import typepy
 from maybe import Maybe
 from subtypes import DateTime, Date, Str, List, Dict
 import pathmagic
-from miscutils import issubclass_safe, get_short_lambda_source
+from miscutils import issubclass_safe, lambda_source
 
 
 class TypeConversionError(typepy.TypeConversionError):
@@ -38,7 +38,7 @@ class Condition:
         return self.condition(input_val)
 
     def extract_name_from_condition(self) -> str:
-        return Str(get_short_lambda_source(self.condition)).slice.after_first(r":").strip() if self.condition.__name__ == "<lambda>" else self.condition.__name__
+        return Str(lambda_source(self.condition)).slice.after_first(r":").strip() if self.condition.__name__ == "<lambda>" else self.condition.__name__
 
 
 class ValidatorMeta(type):

@@ -6,6 +6,7 @@ cursor
 readchar
 colorama
 infi.systray
+Logbook
 PySide6
 maybe-else
 pandas

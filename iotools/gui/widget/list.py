@@ -51,15 +51,11 @@ class List(WidgetHandler):
         self.widget.setDragDropMode(QtWidgets.QAbstractItemView.DragDropMode.InternalMove)
         self.widget.setAlternatingRowColors(True)
 
-        self.delete = QtGui.QShortcut(QtGui.QKeySequence(Qt.Key.Key_Delete), self.widget)
+        self.delete = QtGui.QShortcut(QtGui.QKeySequence(Qt.Key_Delete), self.widget)
         self.delete.activated.connect(lambda: self.widget.takeItem(self.widget.currentRow()))
 
-        self.tab = QtGui.QShortcut(QtGui.QKeySequence(Qt.Key.Key_Tab), self.widget)
+        self.tab = QtGui.QShortcut(QtGui.QKeySequence(Qt.Key_Tab), self.widget)
         self.tab.activated.connect(self._create_item_interactively)
-
-        self.widget.doubleClicked.connect(lambda: print("Haiii"))
-
-        self.tooltip = None
 
     def _create_item_interactively(self, default: Any = None):
         if self.widget.hasFocus():
