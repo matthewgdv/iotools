@@ -290,11 +290,11 @@ class Fixed:
                 return func
 
             def starting(self, datelike: Any) -> Fixed.Interval.Final:
-                self.settings.start_date = DateTime.from_datelike(datelike)
+                self.settings.start_date = DateTime.infer(datelike)
                 return Fixed.Interval.Final(settings=self.settings)
 
             def ending(self, datelike: Any) -> Fixed.Interval.Final:
-                self.settings.end_date = DateTime.from_datelike(datelike)
+                self.settings.end_date = DateTime.infer(datelike)
                 return Fixed.Interval.Final(settings=self.settings)
 
         class ChainableFinal(Final):
@@ -394,11 +394,11 @@ class Relative:
                 return func
 
             def starting(self, datelike: Any) -> Relative.Interval.Final:
-                self.settings.start_time = DateTime.from_datelike(datelike)
+                self.settings.start_time = DateTime.infer(datelike)
                 return Relative.Interval.Final(settings=self.settings)
 
             def ending(self, datelike: Any) -> Relative.Interval.Final:
-                self.settings.end_time = DateTime.from_datelike(datelike)
+                self.settings.end_time = DateTime.infer(datelike)
                 return Relative.Interval.Final(settings=self.settings)
 
         class Minute(Final):

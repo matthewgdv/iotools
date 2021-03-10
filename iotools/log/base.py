@@ -94,7 +94,7 @@ class Log(FileHandler):
         return "\n".join(f"{prefix}{self.format_message_line(record=record, line=line)}" for line in lines)
 
     def format_prefix(self, record: LogRecord) -> str:
-        return f"{DateTime.from_datetime(record.time).to_logformat()} | {record.channel}.{record.level_name.ljust(8)} | "
+        return f"{DateTime.from_datetime(record.time).to_isoformat(timespec='milliseconds')} | {record.channel}.{record.level_name.ljust(8)} | "
 
     def format_message(self, record: LogRecord) -> str:
         return record.message.strip()
@@ -103,10 +103,11 @@ class Log(FileHandler):
         return line
 
     def greeting(self):
-        return self.info(f"Process executed by user {self.user}\n{'-'*200}")
+        self.debug(f"Process executed by user {self.user}")
+        self.delimiter_single()
 
     def goodbye(self):
-        return self.debug("="*200)
+        return self.delimiter_double()
 
     def post_process(self) -> None:
         pass

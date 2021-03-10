@@ -5,7 +5,7 @@ from typing import Any
 from PySide6 import QtGui, QtWidgets
 from PySide6.QtCore import Qt
 
-from iotools.command.argument import Argument, DictArgument
+from iotools.command.argument import Argument, DictionaryArgument
 
 from .base import WidgetHandler
 from .frame import HorizontalFrame
@@ -14,7 +14,7 @@ from .checkbox import Checkbox
 
 class Tree(WidgetHandler):
     """A manager class for a simple tabbed page widget which can display multiple frames that can be switched between."""
-    _argument_class = DictArgument
+    _argument_class = DictionaryArgument
 
     class Item(HorizontalFrame):
         def __init__(self, arg: Argument, state: Any = None) -> None:

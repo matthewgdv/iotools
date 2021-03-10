@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 import sys
 import contextlib
 import types
@@ -13,7 +12,6 @@ import cursor
 
 from maybe import Maybe
 from subtypes import Frame
-from pathmagic import File, PathLike
 from miscutils import is_running_in_ipython
 
 from iotools import res
@@ -194,29 +192,3 @@ class Console:
                 Console.clear_lines(len(choices))
 
         return [choices[index] for index in selected_indices]
-
-
-class SysTrayApp:
-    """Context manager for systemtray-based applications. The console is hidden on entering and shown again on exiting."""
-
-    def __init__(self, hover_text: str = "Placeholder program description.", icon: PathLike = None, default_menu_index: int = 0, on_quit: Callable = None) -> None:
-        from infi.systray import SysTrayIcon
-
-        icon = Maybe(icon).else_(File.from_resource(package=res, name="python_icon", extension="ico"))
-        on_quit = Maybe(on_quit).else_(SysTrayApp._kill)
-
-        self.tray = SysTrayIcon(icon=os.fspath(icon), hover_text=hover_text, on_quit=on_quit, default_menu_index=default_menu_index)
-
-    def __enter__(self) -> SysTrayApp:
-        Console.hide_console()
-        return self.tray.__enter__()
-
-    def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        Console.show_console()
-        if ex_type is None:
-            self.tray.__exit__(ex_type, ex_value, ex_traceback)
-
-    @staticmethod
-    def _kill(systray: Any) -> None:
-        Console.show_console()
-        raise KeyboardInterrupt("The app was closed using the system tray's 'quit' option.")

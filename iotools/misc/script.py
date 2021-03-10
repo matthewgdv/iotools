@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pathlib
-import functools
 from types import MethodType
 from typing import Any, Callable, Type
 import inspect
@@ -77,14 +76,14 @@ class ScriptMeta(type):
             keyword = ', '.join([f'{name}={repr(val)}' for name, val in kwargs.items()])
             arguments = f"{positional}{f', ' if positional and keyword else ''}{keyword}"
 
-            func_name = func.__name__ if func.__self__ is None else f"{type(func.__self__).__name__}.{func.__name__}"
+            func_name = func.__name__ if not hasattr(func, "__self__") else f"{type(func.__self__).__name__}.{func.__name__}"
 
-            cls.log.debug(f"{func_name}({arguments}) starting...\n")
+            cls.log.debug(f"{func_name}({arguments})")
 
             with cls.log.indentation(), Timer() as timer:
                 ret = func(*args, **kwargs)
 
-            cls.log.debug(f"{func_name} finished in {timer.period} seconds, returning: {repr(ret)}.\n")
+            cls.log.debug(f"{func_name} [{timer.period:.3f}s] -> {repr(ret)}")
 
             return ret
 
@@ -94,7 +93,7 @@ class ScriptMeta(type):
         return inspect.isfunction(candidate) or isinstance(candidate, (staticmethod, classmethod))
 
 
-class Script(metaclass=ScriptMeta):
+class Script(ReprMixin, metaclass=ScriptMeta):
     """
     A Script class intended to be subclassed. Acquires a 'Script.name' attribute based on the stem of the file it is defined in.
     Performs detailed logging of the execution of the methods (in a call-_stack-aware, argument-aware, return-value-aware manner) defined within the class until the constructor returns.

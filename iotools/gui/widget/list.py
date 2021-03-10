@@ -63,7 +63,7 @@ class List(WidgetHandler):
 
     def _create_item(self, default: Any = None) -> QtWidgets.QListWidgetItem:
         self.widget.addItem(item := QtWidgets.QListWidgetItem())
-        self.widget.setItemWidget(item, widget := self.Item(arg=self.deep_type, state=default).widget)
+        self.widget.setItemWidget(item, widget := self.Item(state=default, arg=self.deep_type).widget)
         item.setSizeHint(widget.sizeHint())
 
         return item

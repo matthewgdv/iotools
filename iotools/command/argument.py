@@ -3,24 +3,27 @@ from __future__ import annotations
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Union, Optional, Type, TYPE_CHECKING
+import datetime as dt
 
 from pathmagic import File, Dir
-from subtypes import Date, DateTime, Enum
-from miscutils import ReprMixin
+from subtypes import Str, List, Dict, Date, DateTime, Enum
+from miscutils import ReprMixin, ParametrizableMixin
 
 from iotools.misc import Validator, Validate
-from iotools.misc.validator import CollectionValidator
+from iotools.misc.validator import ListValidator, DictionaryValidator
 
 from .stack import Stack
 
 if TYPE_CHECKING:
-    from iotools.gui.widget import WidgetHandler
+    from iotools.gui.widget.base import WidgetHandler
 
 
 class Argument(ReprMixin):
     """Class representing an argument (and its associated metadata) for the Command and Group classes to use."""
+    _registry: dict[Type, Type[Argument]] = {}
 
     validator_constructor: Type[Validator] = None
+    type_affinity: Type = None
 
     def __init__(self, name: str = None, aliases: list[str] = None, info: str = None, default: Any = None, nullable: bool = False,
                  conditions: Union[Callable, list[Callable], dict[str, Callable]] = None, choices: Union[Type[Enum], list] = None) -> None:
@@ -48,6 +51,10 @@ class Argument(ReprMixin):
     def __call__(self) -> Any:
         return self.value
 
+    def __init_subclass__(cls, **kwargs) -> None:
+        if cls.type_affinity is not None:
+            cls._registry[cls.type_affinity] = cls
+
     @property
     def value(self) -> Any:
         """Property controlling access to the value held by this argument. Setting it will cause validation and coercion to the type of this argument."""
@@ -65,32 +72,77 @@ class Argument(ReprMixin):
     def aliases(self, val: list[str]) -> None:
         self._aliases = {self.name, *(val or [])}
 
+    def _post_init_hook(self) -> None:
+        pass
 
-class SizedWidgetArgument(Argument):
-    def __init__(self, name: str = None, aliases: list[str] = None, info: str = None, default: Any = None, nullable: bool = False,
-                 conditions: Union[Callable, list[Callable], dict[str, Callable]] = None, choices: Union[Type[Enum], list] = None, widget_magnitude: int = None) -> None:
-        super().__init__(name=name, aliases=aliases, info=info, default=default, nullable=nullable, conditions=conditions, choices=choices)
-        self.widget_magnitude = widget_magnitude
+    @classmethod
+    def infer_subclass(cls, mystery: Type) -> Type[Argument]:
+        if (arg_class := cls._registry.get(mystery)) is not None:
+            return arg_class
 
-
-class DeepTypedArgument(Argument):
-    validator: CollectionValidator
-
-    def __init__(self, name: str = None, aliases: list[str] = None, info: str = None, default: Any = None, nullable: bool = False,
-                 conditions: Union[Callable, list[Callable], dict[str, Callable]] = None, choices: Union[Type[Enum], list] = None, deep_type: Any = None) -> None:
-        super().__init__(name=name, aliases=aliases, info=info, default=default, nullable=nullable, conditions=conditions, choices=choices)
-        self.validator.of_type(deep_type)
+        for type_, arg_type in cls._registry.items():
+            if isinstance(mystery, type_):
+                return arg_type
+        else:
+            raise TypeError(f"Don't know how to map an {Argument.__name__} from {mystery.__name__}")
 
 
-class StringArgument(SizedWidgetArgument):
+class ParametrizableArgument(Argument, ParametrizableMixin):
+    pass
+
+
+class ParametrizableSizedArgument(ParametrizableArgument):
+    widget_magnitude: int = None
+
+    def parametrize(self, param: int) -> ParametrizableSizedArgument:
+        if not isinstance(param, int):
+            raise TypeError(f"Cannot parametrize {type(self).__name__} with argument of type {type(param).__name__}, must be {int.__name__}")
+
+        self.widget_magnitude = param
+
+        return self
+
+
+class ParametrizableCollectionArgument(ParametrizableArgument):
+    deep_type: Argument = None
+
+    validator: ListValidator
+
+    def parametrize(self, param: Union[Argument, Type]) -> ParametrizableCollectionArgument:
+        self.deep_type = param if isinstance(param, Argument) else Argument.infer_subclass(param)()
+        self.validator.of_type(deep_type=self.deep_type.validator)
+
+        return self
+
+
+class ParametrizableMappingArgument(ParametrizableArgument):
+    key_type: Argument = None
+    val_type: Argument = None
+
+    validator: DictionaryValidator
+
+    def parametrize(self, param: tuple[Union[Argument, Type], Union[Argument, Type]]) -> ParametrizableMappingArgument:
+        key, val = param
+        self.key_type = param if isinstance(param, Argument) else Argument.infer_subclass(key)()
+        self.val_type = param if isinstance(param, Argument) else Argument.infer_subclass(val)()
+        self.validator.of_type(key_type=self.key_type.validator, val_type=self.val_type.validator)
+
+        return self
+
+
+class StringArgument(ParametrizableSizedArgument):
     validator_constructor = Validate.String
+    type_affinity = str
 
-    def __call__(self) -> str:
+    widget_magnitude = 1
+
+    def __call__(self) -> Str:
         return self.value
 
 
 class BooleanArgument(Argument):
     validator_constructor = Validate.Boolean
+    type_affinity = bool
 
     def __call__(self) -> bool:
         return self.value
@@ -98,6 +150,7 @@ class BooleanArgument(Argument):
 
 class IntegerArgument(Argument):
     validator_constructor = Validate.Integer
+    type_affinity = int
 
     def __call__(self) -> int:
         return self.value
@@ -105,6 +158,7 @@ class IntegerArgument(Argument):
 
 class FloatArgument(Argument):
     validator_constructor = Validate.Float
+    type_affinity = float
 
     def __call__(self) -> float:
         return self.value
@@ -112,6 +166,7 @@ class FloatArgument(Argument):
 
 class DecimalArgument(Argument):
     validator_constructor = Validate.Decimal
+    type_affinity = Decimal
 
     def __call__(self) -> Decimal:
         return self.value
@@ -119,34 +174,41 @@ class DecimalArgument(Argument):
 
 class DateArgument(Argument):
     validator_constructor = Validate.Date
+    type_affinity = dt.date
 
     def __call__(self) -> Date:
         return self.value
 
 
-class DateTimeArgument(SizedWidgetArgument):
+class DateTimeArgument(ParametrizableSizedArgument):
     validator_constructor = Validate.DateTime
+    type_affinity = dt.datetime
+
+    widget_magnitude = 6
 
     def __call__(self) -> DateTime:
         return self.value
 
 
-class ListArgument(DeepTypedArgument):
+class ListArgument(ParametrizableCollectionArgument):
     validator_constructor = Validate.List
+    type_affinity = list
 
-    def __call__(self) -> list:
+    def __call__(self) -> List:
         return self.value
 
 
-class DictArgument(DeepTypedArgument):
+class DictionaryArgument(ParametrizableMappingArgument):
     validator_constructor = Validate.Dict
+    type_affinity = dict
 
-    def __call__(self) -> dict:
+    def __call__(self) -> Dict:
         return self.value
 
 
-class SetArgument(DeepTypedArgument):
+class SetArgument(ParametrizableCollectionArgument):
     validator_constructor = Validate.Set
+    type_affinity = set
 
     def __call__(self) -> set:
         return self.value
@@ -154,6 +216,7 @@ class SetArgument(DeepTypedArgument):
 
 class PathArgument(Argument):
     validator_constructor = Validate.Path
+    type_affinity = Path
 
     def __call__(self) -> Path:
         return self.value
@@ -161,6 +224,7 @@ class PathArgument(Argument):
 
 class FileArgument(Argument):
     validator_constructor = Validate.File
+    type_affinity = File
 
     def __call__(self) -> File:
         return self.value
@@ -168,6 +232,7 @@ class FileArgument(Argument):
 
 class DirArgument(Argument):
     validator_constructor = Validate.Dir
+    type_affinity = Dir
 
     def __call__(self) -> Dir:
         return self.value
@@ -177,5 +242,5 @@ class ArgType:
     """A namespace for the various validators corresponding to argument types an CommandHandler understands."""
     String, Boolean, Integer, Float, Decimal = StringArgument, BooleanArgument, IntegerArgument, FloatArgument, DecimalArgument
     DateTime, Date = DateTimeArgument, DateArgument
-    List, Dict, Set = ListArgument, DictArgument, SetArgument
+    List, Dict, Set = ListArgument, DictionaryArgument, SetArgument
     Path, File, Dir = PathArgument, FileArgument, DirArgument

@@ -4,11 +4,13 @@ from typing import Callable, Optional
 
 from PySide6 import QtWidgets
 
+from iotools.command.argument import BooleanArgument
 from .base import WidgetHandler
 
 
 class Button(WidgetHandler):
     """A manager class for a simple Button widget which can trigger a callback when pushed."""
+    _argument_class = BooleanArgument
 
     def __init__(self, text: str = None, command: Callable = None, state: bool = None) -> None:
         super().__init__()

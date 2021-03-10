@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from maybe import Maybe
 
-from iotools.command.argument import BooleanArgument
+from iotools.command.argument import BooleanArgument, DictionaryArgument
 
 from .base import WidgetHandler
 from .frame import HorizontalFrame
@@ -56,6 +56,7 @@ class Checkbox(WidgetHandler):
 
 class CheckBar(HorizontalFrame):
     """A manager class for a list of Checkbox widgets placed into a single widget."""
+    _argument_class = DictionaryArgument
 
     def __init__(self, choices: dict[str, bool] = None, **kwargs: Any) -> None:
         super().__init__(margins=0)

@@ -1,5 +1,5 @@
 __all__ = [
-    "Console", "SysTrayApp",
+    "Console",
     "Serializer", "Secrets", "LostObject",
     "Cache",
     "Config", "IoToolsConfig",
@@ -8,7 +8,7 @@ __all__ = [
     "Schedule",
 ]
 
-from .console import Console, SysTrayApp
+from .console import Console
 from .config import Config, IoToolsConfig
 from .serializer import Serializer, Secrets, LostObject
 from .cache import Cache

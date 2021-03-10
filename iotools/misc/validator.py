@@ -11,7 +11,7 @@ import typepy
 from maybe import Maybe
 from subtypes import DateTime, Date, Str, List, Dict
 import pathmagic
-from miscutils import issubclass_safe, lambda_source
+from miscutils import ParametrizableMixin, issubclass_safe, lambda_source
 
 
 class TypeConversionError(typepy.TypeConversionError):
@@ -47,24 +47,6 @@ class ValidatorMeta(type):
     def __init__(cls: Type[Validator], name: str, bases: tuple, namespace: dict) -> None:
         if cls.dtype is not None:
             cls.registry[cls.dtype] = cls
-
-
-class TypedCollectionMeta(ValidatorMeta):
-    """A metaclass to drive the use of customizable validators for typed collections."""
-
-    class TypedCollectionProxy:
-        def __init__(self, cls: Type[CollectionValidator], dtype: Any) -> None:
-            self.cls, self.dtype = cls, dtype
-
-        def __repr__(self) -> str:
-            return repr(self.cls)
-
-        def __call__(self, **kwargs) -> CollectionValidator:
-            return self.cls(deep_type=self.dtype, **kwargs)
-
-    def __getitem__(cls, key: Any) -> TypedCollectionProxy:
-        assert issubclass(cls, CollectionValidator)
-        return cls.TypedCollectionProxy(cls, key)
 
 
 class Validator(metaclass=ValidatorMeta):
@@ -232,14 +214,7 @@ class DecimalValidator(NumericValidator):
     dtype, converter = decimal.Decimal, Decimal
 
 
-class CollectionValidator(Validator, metaclass=TypedCollectionMeta):
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Type, Type]) -> None:
-        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
-        self.deep_type = deep_type
-
-    def of_type(self, dtype: Any) -> CollectionValidator:
-        raise NotImplemented
-
+class ParametrizableValidator(Validator, ParametrizableMixin):
     def _pre_process(self, value: Any) -> Any:
         if isinstance(value, str):
             try:
@@ -250,30 +225,32 @@ class CollectionValidator(Validator, metaclass=TypedCollectionMeta):
         return value
 
 
-class ListValidator(CollectionValidator):
+class ListValidator(ParametrizableValidator):
     """A validator that can handle lists. Item access can be used to create a new validator class that will also validate the type of the list members."""
     dtype, converter = list, typepy.List
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Any, Any] = None) -> None:
-        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes, deep_type=deep_type)
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
+        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
+        self.deep_type: Optional[Validator] = None
 
     def __str__(self) -> str:
-        return f"""{super().__str__()}{f"[{self.deep_type.__name__}]" if self.deep_type is not None else ""}"""
+        return f"""{super().__str__()}{f"[{self.deep_type.converter.__name__}]" if self.deep_type is not None else ""}"""
 
-    def __getitem__(self, key) -> ListValidator:
-        return self.of_type(key)
+    def parametrize(self, param: Any) -> ListValidator:
+        self.of_type(deep_type=param)
+        return self
 
     def of_type(self, deep_type: Any) -> ListValidator:
-        self.deep_type = deep_type
+        self.deep_type = Validate.infer_type(deep_type, nullable=True)
         return self
 
     def is_valid(self, value: Any) -> bool:
+        valid = super().is_valid(value)
         if self.deep_type is None:
-            return super().is_valid(value)
+            return valid
         else:
-            if super().is_valid(value):
-                validator = Validate.Type(self.deep_type, nullable=True)
-                return all([validator.is_valid(item) for item in super().convert(value)])
+            if valid:
+                return all([self.deep_type.is_valid(item) for item in super().convert(value)])
             else:
                 return False
 
@@ -281,8 +258,7 @@ class ListValidator(CollectionValidator):
         if (converted := super().convert(value)) is None or self.deep_type is None:
             return converted
         else:
-            validator = Validate.Type(self.deep_type, nullable=True)
-            return [validator.convert(item) for item in super().convert(value)]
+            return [self.deep_type(item) for item in converted]
 
     def _to_subtype(self, value: list) -> List:
         return List(value)
@@ -297,43 +273,49 @@ class SetValidator(ListValidator):
     dtype, converter = set, Set
 
 
-class DictionaryValidator(CollectionValidator):
+class DictionaryValidator(ParametrizableValidator):
     """A validator that can handle dicts. Item access can be used to create a new validator class that will also validate the type of the dict's keys and values."""
     dtype, converter = dict, typepy.Dictionary
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True, deep_type: tuple[Type, Type] = None) -> None:
-        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes, deep_type=deep_type)
+    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
+        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
+        self.key_type: Optional[Validator] = None
+        self.val_type: Optional[Validator] = None
 
     def __str__(self) -> str:
-        return f"""{super().__str__()}{f"[{', '.join([val.__name__ for val in self.deep_type])}]" if self.deep_type is not None else ""}"""
+        return f"""{super().__str__()}{f"[{self.key_type.converter.__name__}, {self.val_type.converter.__name__}]" if self.is_parametrized else ""}"""
 
-    def __getitem__(self, key) -> DictionaryValidator:
-        return self.of_type(key)
+    @property
+    def is_parametrized(self):
+        return not (self.key_type is None and self.val_type is None)
 
-    def of_type(self, deep_type: tuple[Any, Any]) -> DictionaryValidator:
-        self.deep_type = deep_type
+    def parametrize(self, param: Any) -> DictionaryValidator:
+        key, val = param
+        self.of_type(key_type=key, val_type=val)
+        return self
+
+    def of_type(self, key_type: Any, val_type: Any) -> DictionaryValidator:
+        self.key_type = Validate.infer_type(key_type, nullable=True)
+        self.val_type = Validate.infer_type(val_type, nullable=True)
+
         return self
 
     def is_valid(self, value: Any) -> bool:
-        if self.deep_type is None:
-            return super().is_valid(value)
+        valid = super().is_valid(value)
+        if not self.is_parametrized:
+            return valid
         else:
-            if super().is_valid(value):
+            if valid:
                 converted = super().convert(value)
-                key_type, val_type = self.deep_type
-                key_validator, val_validator = Validate.Type(key_type, nullable=True), Validate.Type(val_type, nullable=True)
-                return all([key_validator.is_valid(item) for item in converted.keys()]) and all([val_validator.is_valid(item) for item in converted.values()])
+                return all([self.key_type.is_valid(item) for item in converted.keys()]) and all([self.val_type.is_valid(item) for item in converted.values()])
             else:
                 return False
 
     def convert(self, value: Any) -> Optional[dict]:
-        if (converted := super().convert(value)) is None or (self.deep_type is None):
+        if (converted := super().convert(value)) is None or not self.is_parametrized:
             return converted
         else:
-            converted = super().convert(value)
-            key_type, val_type = self.deep_type
-            key_validator, val_validator = Validate.Type(key_type, nullable=True), Validate.Type(val_type, nullable=True)
-            return {key_validator(key): val_validator(val) for key, val in converted.items()}
+            return {self.key_type(key): self.val_type(val) for key, val in converted.items()}
 
     def _to_subtype(self, value: dict) -> Dict:
         return Dict(value)
@@ -433,9 +415,11 @@ class Validate:
     Anything, Unknown = AnythingValidator, UnknownTypeValidator
 
     @classmethod
-    def Type(cls, dtype: Any, **kwargs: Any) -> Validator:
+    def infer_type(cls, dtype: Any, **kwargs: Any) -> Validator:
         """Return a validator appropriate to the dtype passed."""
-        if dtype is None:
+        if isinstance(dtype, Validator):
+            return dtype
+        elif dtype is None:
             return AnythingValidator(**kwargs)
         elif issubclass_safe(dtype, Validator):
             return dtype(**kwargs)

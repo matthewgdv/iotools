@@ -7,6 +7,7 @@ from .widget.base import WidgetHandler
 from .widget.button import Button
 from .widget.label import Label
 from .widget.group_box import HorizontalGroupBox
+from .widget.widget import Widget
 
 from iotools.misc import Console
 

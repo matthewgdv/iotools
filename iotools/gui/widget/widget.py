@@ -7,7 +7,7 @@ from iotools.command.argument import (
     StringArgument, BooleanArgument, IntegerArgument, FloatArgument,
     FileArgument, DirArgument,
     DateTimeArgument, DateArgument,
-    ListArgument, DictArgument
+    ListArgument, DictionaryArgument
 )
 
 from .base import WidgetHandler
@@ -61,10 +61,10 @@ class Widget:
     def from_argument(arg: Argument) -> WidgetHandler:
         if arg.choices is not None:
             handler = DropDown(choices=arg.choices, state=arg.default)
-        elif isinstance(arg, DictArgument) and arg.validator.deep_type == (str, bool):
+        elif isinstance(arg, DictionaryArgument) and isinstance(arg.key_type, StringArgument) and isinstance(arg.val_type, BooleanArgument):
             handler = CheckBar(choices=arg.default)
         elif isinstance(arg, BooleanArgument):
-            handler = Checkbox(state=Maybe(arg.default).else_(False))
+            handler = Button(state=Maybe(arg.default).else_(False))
         elif isinstance(arg, IntegerArgument):
             handler = IntEntry(state=arg.default)
         elif isinstance(arg, FloatArgument):
@@ -80,9 +80,9 @@ class Widget:
         elif isinstance(arg, StringArgument):
             handler = Text(state=arg.default, magnitude=arg.widget_magnitude) if arg.widget_magnitude and arg.widget_magnitude > 1 else Entry(state=arg.default)
         elif isinstance(arg, ListArgument):
-            handler = List(state=arg.default, deep_type=arg)
-        elif isinstance(arg, DictArgument):
-            handler = Tree(state=arg.default)
+            handler = List(state=arg.default, deep_type=arg.deep_type)
+        elif isinstance(arg, DictionaryArgument):
+            handler = Tree(state=arg.default, key_type=arg.key_type, val_type=arg.val_type)
         else:
             raise TypeError(f"Don't know how to handle {type(arg).__name__}: {arg}")
 

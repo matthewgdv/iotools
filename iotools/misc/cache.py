@@ -15,7 +15,7 @@ class Cache:
 
     def __init__(self, file: PathLike, days: int = None, hours: int = None, minutes: int = None) -> None:
         self.serializer = Serializer(file)
-        self.expiry = None if all([val is None for val in (days, hours, minutes)]) else DateTime.now().delta(days=Maybe(days).else_(0), hours=Maybe(hours).else_(0), minutes=Maybe(minutes).else_(0))
+        self.expiry = None if all([val is None for val in (days, hours, minutes)]) else DateTime.now().shift(days=Maybe(days).else_(0), hours=Maybe(hours).else_(0), minutes=Maybe(minutes).else_(0))
         self.content = self._get_content()
 
     def __repr__(self) -> str:
