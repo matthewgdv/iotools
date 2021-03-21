@@ -1,0 +1,2 @@
+class TestStack:
+    pass

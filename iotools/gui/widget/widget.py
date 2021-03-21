@@ -7,7 +7,8 @@ from iotools.command.argument import (
     StringArgument, BooleanArgument, IntegerArgument, FloatArgument,
     FileArgument, DirArgument,
     DateTimeArgument, DateArgument,
-    ListArgument, DictionaryArgument
+    ListArgument, DictionaryArgument,
+    EnumArgument
 )
 
 from .base import WidgetHandler
@@ -59,7 +60,7 @@ class Widget:
 
     @staticmethod
     def from_argument(arg: Argument) -> WidgetHandler:
-        if arg.choices is not None:
+        if arg.choices is not None or isinstance(arg, EnumArgument):
             handler = DropDown(choices=arg.choices, state=arg.default)
         elif isinstance(arg, DictionaryArgument) and isinstance(arg.key_type, StringArgument) and isinstance(arg.val_type, BooleanArgument):
             handler = CheckBar(choices=arg.default)

@@ -31,7 +31,7 @@ class ArgParser(argparse.ArgumentParser):
     def format_help(self) -> str:
         target_cols = ["name", "commandline_aliases", "type", "default", "nullable", "info", "choices", "conditions"]
         frame = Frame(
-            [(arg.name, arg.aliases, arg.validator.dtype.__name__, arg.default, arg.nullable, arg.info, arg.choices, arg.validator.conditions)
+            [(arg.name, arg.aliases, arg.validator.type_affinity.__name__, arg.default, arg.nullable, arg.info, arg.choices, arg.validator.conditions)
              for arg in self.handler.arguments],
             columns=target_cols
         ).fillna_as_none()
@@ -61,5 +61,5 @@ class ArgParser(argparse.ArgumentParser):
             argument.value = candidate
             return argument.value
 
-        wrapper.__name__ = argument.validator.dtype.__name__
+        wrapper.__name__ = argument.validator.type_affinity.__name__
         return wrapper

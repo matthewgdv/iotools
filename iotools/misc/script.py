@@ -57,7 +57,7 @@ class ScriptMeta(type):
                     exception = None
 
                 with log.no_indentation():
-                    log.delimiter_single()
+                    log.delimiter_lesser()
                     log.debug(f"At point of exit, the final state of the script object was:")
                     log.debug(str(script))
 

@@ -1,0 +1,2 @@
+class TestRunMode:
+    pass

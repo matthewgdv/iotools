@@ -64,6 +64,6 @@ class FileSelect(PathSelect):
 
 
 class DirSelect(PathSelect):
-    """A manager class for a simple DirSelect widget which directs the user to browse for a folder."""
+    """A manager class for a simple DirSelect widget which directs the user to browse for a dir."""
     _argument_class = DirArgument
     path_method, prompt = staticmethod(QtWidgets.QFileDialog.getExistingDirectory), "Select Dir"

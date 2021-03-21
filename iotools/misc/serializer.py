@@ -15,7 +15,7 @@ import dill
 from pathmagic import File
 from miscutils import cached_property
 
-from .config import IoToolsConfig as Config
+from .config import Config
 
 
 class Lost:

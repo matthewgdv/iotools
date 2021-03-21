@@ -4,11 +4,14 @@ from typing import Any
 
 from PySide6 import QtWidgets
 
+from iotools.command.argument import StringArgument, EnumArgument
+
 from .base import WidgetHandler
 
 
 class DropDown(WidgetHandler):
     """A manager class for a simple DropDown widget which can display several options."""
+    _argument_class = (StringArgument, EnumArgument)
 
     def __init__(self, choices: list = None, state: str = None, **kwargs: Any) -> None:
         super().__init__()
@@ -28,7 +31,7 @@ class DropDown(WidgetHandler):
         self._choice_mappings = {str(choice): choice for choice in val}
 
         self.widget.clear()
-        self.widget.insertItems(0, val)
+        self.widget.insertItems(0, list(self._choice_mappings))
 
     def _get_state(self) -> Any:
         return self._choice_mappings[self.widget.currentText()]

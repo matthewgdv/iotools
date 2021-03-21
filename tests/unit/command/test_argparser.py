@@ -1,6 +1,3 @@
-# import pytest
-
-
 class TestArgParser:
     def test_add_arguments_from_handler(self):  # synced
         assert True
@@ -14,8 +11,8 @@ class TestArgParser:
     def test__get_formatter(self):  # synced
         assert True
 
-    def test_validate_and_set():  # synced
+    def test_validate_and_set(self):  # synced
         assert True
 
-    def test_wrapper():  # synced
+    def test_wrapper(self):  # synced
         assert True

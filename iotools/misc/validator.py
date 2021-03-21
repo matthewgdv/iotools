@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Union, Callable, Iterable, Optional, Type
+from typing import Any, Generic, TypeVar, Union, Callable, Iterable, Optional, Type
 import pathlib
 import enum
 import decimal
@@ -12,6 +12,9 @@ from maybe import Maybe
 from subtypes import DateTime, Date, Str, List, Dict
 import pathmagic
 from miscutils import ParametrizableMixin, issubclass_safe, lambda_source
+
+
+E = TypeVar("E", bound=enum.Enum)
 
 
 class TypeConversionError(typepy.TypeConversionError):
@@ -45,25 +48,23 @@ class ValidatorMeta(type):
     registry = {}
 
     def __init__(cls: Type[Validator], name: str, bases: tuple, namespace: dict) -> None:
-        if cls.dtype is not None:
-            cls.registry[cls.dtype] = cls
+        if cls.type_affinity is not None:
+            cls.registry[cls.type_affinity] = cls
 
 
 class Validator(metaclass=ValidatorMeta):
     """Abstract validator class providing the interface for concrete validators. The most important methods are Validator.is_valid() and Validator.convert()."""
-    dtype = None
+    type_affinity = None
     converter = None
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
-        self.nullable, self.use_subtypes = nullable, use_subtypes
+    def __init__(self, *, nullable: bool = False) -> None:
+        self.nullable = nullable
         self.choices: Optional[set] = None
         self.conditions: list[Condition] = []
-
-        if choices is not None:
-            self.set_choices(choices)
+        self.converter_kwargs: dict[str, Any] = {}
 
     def __repr__(self) -> str:
-        return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'dtype' in attr else (None if val is None else val.__name__)}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
+        return f"""{type(self).__name__}({", ".join([f"{attr}={repr(val) if not 'type_affinity' in attr else (None if val is None else val.__name__)}" for attr, val in self.__dict__.items() if not attr.startswith('_')])})"""
 
     def __str__(self) -> str:
         return self.converter.__name__
@@ -75,8 +76,10 @@ class Validator(metaclass=ValidatorMeta):
         self.nullable = nullable
         return self
 
-    def set_choices(self, enumeration: Union[enum.Enum, Iterable]) -> Validator:
-        self.choices = [member.value for member in enumeration] if issubclass_safe(enumeration, enum.Enum) else list(enumeration)
+    def set_choices(self, choices: Union[enum.Enum, Iterable] = None) -> Validator:
+        self.choices = None if choices is None else (
+            [member.value for member in choices] if issubclass_safe(choices, enum.Enum) else list(choices)
+        )
         return self
 
     def add_condition(self, condition: Callable, name: str = None) -> Validator:
@@ -93,15 +96,14 @@ class Validator(metaclass=ValidatorMeta):
 
         value = self._pre_process(value)
 
-        if not self.converter(value, strict_level=typepy.StrictLevel.MIN).is_type():
+        if not self.converter(value, strict_level=typepy.StrictLevel.MIN, **self.converter_kwargs).is_type():
             return False
 
         try:
             self.convert(value)
+            return True
         except (ValueError, TypeConversionError):
             return False
-        else:
-            return True
 
     def convert(self, value: Any) -> Any:
         if value is None:
@@ -109,22 +111,22 @@ class Validator(metaclass=ValidatorMeta):
                 return None
             else:
                 raise TypeConversionError(self, value)
-        else:
-            value = self._pre_process(value)
 
-            try:
-                ret = self.converter(value, strict_level=typepy.StrictLevel.MIN).convert()
-            except typepy.TypeConversionError:
-                raise TypeConversionError(self, value)
+        value = self._pre_process(value)
 
-            if self.choices is not None and ret not in self.choices:
-                raise ValueError(f"Value '{value}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self.choices])}.")
+        try:
+            ret = self.converter(value, strict_level=typepy.StrictLevel.MIN, **self.converter_kwargs).convert()
+        except typepy.TypeConversionError:
+            raise TypeConversionError(self, value)
 
-            for condition in self.conditions:
-                if not condition(ret):
-                    raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
+        if self.choices is not None and ret not in self.choices:
+            raise ValueError(f"Value '{value}' is not a valid choice. Valid choices are: {', '.join([repr(option) for option in self.choices])}.")
 
-            return self._to_subtype(ret) if self.use_subtypes else ret
+        for condition in self.conditions:
+            if not condition(ret):
+                raise ValueError(f"Value '{value}' does not satisfy the condition: '{condition}'.")
+
+        return self._to_subtype(ret)
 
     def _to_subtype(self, value: Any) -> Any:
         return value
@@ -162,13 +164,13 @@ class UnknownTypeValidator(Validator):
 
 class BooleanValidator(Validator):
     """A validator that can handle booleans."""
-    dtype, converter = bool, typepy.Bool
+    type_affinity, converter = bool, typepy.Bool
     converter.__name__ = "Boolean"
 
 
 class StringValidator(Validator):
     """A validator that can handle strings."""
-    dtype, converter = str, typepy.String
+    type_affinity, converter = str, typepy.String
 
     def max_len(self, length: int) -> StringValidator:
         self.conditions.append(Condition(lambda val: len(val) <= length, name=f"len(val) <= {length}"))
@@ -194,7 +196,7 @@ class NumericValidator(Validator):
 
 class IntegerValidator(NumericValidator):
     """A validator that can handle integers."""
-    dtype, converter = int, typepy.Integer
+    type_affinity, converter = int, typepy.Integer
 
 
 class FloatValidator(NumericValidator):
@@ -203,7 +205,7 @@ class FloatValidator(NumericValidator):
         def convert(self) -> float:
             return float(super().convert())
 
-    dtype, converter = float, Float
+    type_affinity, converter = float, Float
 
 
 class DecimalValidator(NumericValidator):
@@ -211,7 +213,7 @@ class DecimalValidator(NumericValidator):
     class Decimal(typepy.RealNumber):
         pass
 
-    dtype, converter = decimal.Decimal, Decimal
+    type_affinity, converter = decimal.Decimal, Decimal
 
 
 class ParametrizableValidator(Validator, ParametrizableMixin):
@@ -227,10 +229,10 @@ class ParametrizableValidator(Validator, ParametrizableMixin):
 
 class ListValidator(ParametrizableValidator):
     """A validator that can handle lists. Item access can be used to create a new validator class that will also validate the type of the list members."""
-    dtype, converter = list, typepy.List
+    type_affinity, converter = list, typepy.List
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
-        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
+    def __init__(self, *, nullable: bool = False) -> None:
+        super().__init__(nullable=nullable)
         self.deep_type: Optional[Validator] = None
 
     def __str__(self) -> str:
@@ -270,15 +272,15 @@ class SetValidator(ListValidator):
         def convert(self) -> set:
             return set(super().convert())
 
-    dtype, converter = set, Set
+    type_affinity, converter = set, Set
 
 
 class DictionaryValidator(ParametrizableValidator):
     """A validator that can handle dicts. Item access can be used to create a new validator class that will also validate the type of the dict's keys and values."""
-    dtype, converter = dict, typepy.Dictionary
+    type_affinity, converter = dict, typepy.Dictionary
 
-    def __init__(self, *, nullable: bool = False, choices: Union[enum.Enum, Iterable] = None, use_subtypes: bool = True) -> None:
-        super().__init__(nullable=nullable, choices=choices, use_subtypes=use_subtypes)
+    def __init__(self, *, nullable: bool = False) -> None:
+        super().__init__(nullable=nullable)
         self.key_type: Optional[Validator] = None
         self.val_type: Optional[Validator] = None
 
@@ -323,7 +325,7 @@ class DictionaryValidator(ParametrizableValidator):
 
 class DateTimeValidator(Validator):
     """A validator that can handle datetimes. Returns a subtypes.DateTime instance on Validator.convert(). If a datetime.datetime object is desired, call DateTime.to_datetime()."""
-    dtype, converter = dt.datetime, typepy.DateTime
+    type_affinity, converter = dt.datetime, typepy.DateTime
 
     def before(self, date: dt.date) -> DateTimeValidator:
         self.conditions.append(Condition(condition=lambda val: val < date, name=f"val < {date}"))
@@ -344,7 +346,7 @@ class DateValidator(DateTimeValidator):
             datetime = super().convert()
             return dt.date(datetime.year, datetime.month, datetime.day)
 
-    dtype, converter = dt.date, Date
+    type_affinity, converter = dt.date, Date
 
     def _to_subtype(self, value: dt.datetime) -> Date:
         return Date.from_date(value)
@@ -367,7 +369,7 @@ class PathValidator(Validator):
         def convert(self) -> Any:
             return pathlib.Path(self.value)
 
-    dtype, converter = pathlib.Path, Path
+    type_affinity, converter = pathlib.Path, Path
 
 
 class FileValidator(Validator):
@@ -385,7 +387,7 @@ class FileValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.File(self.value)
 
-    dtype, converter = pathmagic.File, File
+    type_affinity, converter = pathmagic.File, File
 
 
 class DirValidator(Validator):
@@ -403,7 +405,36 @@ class DirValidator(Validator):
         def convert(self) -> Any:
             return pathmagic.Dir(self.value)
 
-    dtype, converter = pathmagic.Dir, Dir
+    type_affinity, converter = pathmagic.Dir, Dir
+
+
+class EnumValidator(ParametrizableValidator, Generic[E]):
+    class Enum(Generic[E]):
+        def __init__(self, value: Any, *args: Any, enum_: Type[E], **kwargs: Any) -> None:
+            self.value = value
+            self.enum = enum_
+
+        def is_type(self) -> bool:
+            try:
+                self.convert()
+                return True
+            except KeyError:
+                return False
+
+        def convert(self) -> E:
+            return self.enum[self.value]
+
+    type_affinity, converter = enum.Enum, Enum
+
+    def __class_getitem__(cls, param: Type[E]) -> EnumValidator.ParametrizedProxy:
+        return super().__class_getitem__(param)
+
+    def convert(self, value: Any) -> E:
+        return super().convert(value)
+
+    def parametrize(self, param: enum.Enum) -> EnumValidator:
+        self.converter_kwargs["enum_"] = param
+        return self
 
 
 class Validate:
@@ -412,23 +443,24 @@ class Validate:
     DateTime, Date = DateTimeValidator, DateValidator
     List, Dict, Set = ListValidator, DictionaryValidator, SetValidator
     Path, File, Dir = PathValidator, FileValidator, DirValidator
+    Enum = EnumValidator
     Anything, Unknown = AnythingValidator, UnknownTypeValidator
 
     @classmethod
-    def infer_type(cls, dtype: Any, **kwargs: Any) -> Validator:
-        """Return a validator appropriate to the dtype passed."""
-        if isinstance(dtype, Validator):
-            return dtype
-        elif dtype is None:
+    def infer_type(cls, type_: Any, **kwargs: Any) -> Validator:
+        """Return a validator appropriate to the type_affinity passed."""
+        if isinstance(type_, Validator):
+            return type_
+        elif type_ is None:
             return AnythingValidator(**kwargs)
-        elif issubclass_safe(dtype, Validator):
-            return dtype(**kwargs)
+        elif issubclass_safe(type_, Validator):
+            return type_(**kwargs)
         else:
-            if (validator := ValidatorMeta.registry.get(dtype)) is not None:
+            if (validator := ValidatorMeta.registry.get(type_)) is not None:
                 return validator(**kwargs)
             else:
                 for validator_dtype, validator in ValidatorMeta.registry.items():
-                    if issubclass_safe(dtype, validator_dtype):
+                    if issubclass_safe(type_, validator_dtype):
                         return validator(**kwargs)
                 else:
-                    return UnknownTypeValidator(constructor=dtype, **kwargs)
+                    return UnknownTypeValidator(constructor=type_, **kwargs)

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import enum
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Callable, Union, Optional, Type, TYPE_CHECKING
+from typing import Any, Callable, Generic, TypeVar, Union, Optional, Type, TYPE_CHECKING
 import datetime as dt
 
 from pathmagic import File, Dir
@@ -10,12 +11,15 @@ from subtypes import Str, List, Dict, Date, DateTime, Enum
 from miscutils import ReprMixin, ParametrizableMixin
 
 from iotools.misc import Validator, Validate
-from iotools.misc.validator import ListValidator, DictionaryValidator
+from iotools.misc.validator import EnumValidator, ListValidator, DictionaryValidator
 
 from .stack import Stack
 
 if TYPE_CHECKING:
     from iotools.gui.widget.base import WidgetHandler
+
+
+E = TypeVar("E")
 
 
 class Argument(ReprMixin):
@@ -32,7 +36,7 @@ class Argument(ReprMixin):
         self.required = self.default is None and not self.nullable
 
         self.choices: list = [member.value for member in choices] if Enum.is_enum(choices) else choices
-        self.validator = self.validator_constructor(nullable=bool(self.nullable), choices=self.choices)
+        self.validator = self.validator_constructor(nullable=bool(self.nullable)).set_choices(self.choices)
 
         if conditions:
             self.validator.add_conditions(conditions) if isinstance(conditions, (list, dict)) else self.validator.add_condition(conditions)
@@ -238,9 +242,32 @@ class DirArgument(Argument):
         return self.value
 
 
+class EnumArgument(ParametrizableArgument, Generic[E]):
+    validator_constructor = Validate.Enum
+    type_affinity = enum.Enum
+
+    validator: EnumValidator
+
+    def __class_getitem__(cls, param: Type[E]) -> EnumArgument.ParametrizedProxy:
+        return cls.ParametrizedProxy(cls=cls, param=param)
+
+    def __getitem__(self, param: Type[E]) -> EnumArgument:
+        super().parametrize(param)
+        return self
+
+    def parametrize(self, param: Type[E]) -> EnumArgument:
+        self.validator.parametrize(param)
+        self.choices = param
+        return self
+
+    def __call__(self) -> E:
+        return self.value
+
+
 class ArgType:
     """A namespace for the various validators corresponding to argument types an CommandHandler understands."""
     String, Boolean, Integer, Float, Decimal = StringArgument, BooleanArgument, IntegerArgument, FloatArgument, DecimalArgument
     DateTime, Date = DateTimeArgument, DateArgument
     List, Dict, Set = ListArgument, DictionaryArgument, SetArgument
     Path, File, Dir = PathArgument, FileArgument, DirArgument
+    Enum = EnumArgument

@@ -6,7 +6,7 @@ import string
 
 from subtypes import Dict
 
-from iotools.misc import IoToolsConfig as Config
+from iotools import Config
 
 from .argument import Argument
 from .enums import RunMode
@@ -53,7 +53,7 @@ class Handler:
 class CommandHandler(Handler):
     """
     A class that handles I/O by collecting arguments through the commandline, or generates a GUI to collect arguments if no commandline arguments are provided.
-    The CommandHandler implicitly creates a folder structure in the directory of its script for storing the configuration of the previous run, and for providing output.
+    The CommandHandler implicitly creates a dir structure in the directory of its script for storing the configuration of the previous run, and for providing output.
     """
     parent: CommandHandler
 
@@ -115,8 +115,8 @@ class CommandHandler(Handler):
 
             self.shared_namespace = self.parent.shared_namespace
         else:
-            self.config = Config()
-            self.root = self.folder = self.config.folder.new_dir(self.name)
+            self.config = Config(author="command", name=self.name)
+            self.root = self.folder = self.config.dir
 
             self.shared_namespace = Dict()
 

@@ -30,8 +30,6 @@ class Log(FileHandler):
     default_logger: Logger = critical.__self__
     default_logger.name = "main"
 
-    critical, error, warning, notice, info, debug, trace = critical, error, warning, notice, info, debug, trace
-
     def __init__(self, filename: PathLike, mode="a", encoding: str = None, level: int = LogLevel.NOT_SET,
                  format_string: str = None, delay: bool = True, filter: Callable = None, bubble: bool = False) -> None:
         super().__init__(filename=filename, mode=mode, encoding=encoding, level=level,
@@ -104,29 +102,57 @@ class Log(FileHandler):
 
     def greeting(self):
         self.debug(f"Process executed by user {self.user}")
-        self.delimiter_single()
+        self.delimiter_lesser()
 
     def goodbye(self):
-        return self.delimiter_double()
+        return self.delimiter_greater()
 
     def post_process(self) -> None:
         pass
 
     def handle_exception(self, exception: Exception) -> None:
-        self.delimiter_single()
+        self.delimiter_lesser()
         self.critical(format_exc())
 
     @classmethod
-    def bare(cls, text: str) -> None:
-        cls.default_logger.log(100, text)
+    def trace(cls, text: Any) -> None:
+        cls.default_logger.trace(str(text))
 
     @classmethod
-    def delimiter_single(cls) -> None:
+    def debug(cls, text: Any) -> None:
+        cls.default_logger.debug(str(text))
+
+    @classmethod
+    def info(cls, text: Any) -> None:
+        cls.default_logger.info(str(text))
+
+    @classmethod
+    def notice(cls, text: Any) -> None:
+        cls.default_logger.notice(str(text))
+
+    @classmethod
+    def warning(cls, text: Any) -> None:
+        cls.default_logger.warning(str(text))
+
+    @classmethod
+    def error(cls, text: Any) -> None:
+        cls.default_logger.error(str(text))
+
+    @classmethod
+    def critical(cls, text: Any) -> None:
+        cls.default_logger.critical(str(text))
+
+    @classmethod
+    def bare(cls, text: Any) -> None:
+        cls.default_logger.log(100, str(text))
+
+    @classmethod
+    def delimiter_lesser(cls) -> None:
         """Write a delimiter of hyphens to this log."""
         cls.debug("-"*200)
 
     @classmethod
-    def delimiter_double(cls) -> None:
+    def delimiter_greater(cls) -> None:
         """Write a delimiter of equal signs to this log."""
         cls.debug("="*200)
 

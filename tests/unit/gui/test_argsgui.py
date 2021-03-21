@@ -1,6 +1,3 @@
-# import pytest
-
-
 class TestArgsGui:
     def test_populate_top_segment(self):  # synced
         assert True
@@ -22,5 +19,5 @@ class TestArgFrame:
     def test_state(self):  # synced
         assert True
 
-    def test_from_arg():  # synced
+    def test_from_arg(self):  # synced
         assert True

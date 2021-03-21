@@ -1,6 +1,3 @@
-# import pytest
-
-
 class TestTypeConversionError:
     pass
 
@@ -16,9 +13,8 @@ class TestCondition:
         assert True
 
 
-class TestTypedCollectionMeta:
-    def test___getitem__():  # synced
-        assert True
+class TestValidatorMeta:
+    pass
 
 
 class TestValidator:
@@ -37,6 +33,9 @@ class TestValidator:
     def test_add_condition(self):  # synced
         assert True
 
+    def test_add_conditions(self):  # synced
+        assert True
+
     def test_is_valid(self):  # synced
         assert True
 
@@ -46,7 +45,7 @@ class TestValidator:
     def test__to_subtype(self):  # synced
         assert True
 
-    def test__try_eval(self):  # synced
+    def test__pre_process(self):  # synced
         assert True
 
 
@@ -64,7 +63,7 @@ class TestUnknownTypeValidator:
         assert True
 
 
-class TestBoolValidator:
+class TestBooleanValidator:
     pass
 
 
@@ -79,20 +78,16 @@ class TestStringValidator:
         assert True
 
 
+class TestNumericValidator:
+    def test_max_value(self):  # synced
+        assert True
+
+    def test_min_value(self):  # synced
+        assert True
+
+
 class TestIntegerValidator:
-    def test_max_value(self):  # synced
-        assert True
-
-    def test_min_value(self):  # synced
-        assert True
-
-
-class TestRealNumberValidator:
-    def test_max_value(self):  # synced
-        assert True
-
-    def test_min_value(self):  # synced
-        assert True
+    pass
 
 
 class TestFloatValidator:
@@ -106,11 +101,16 @@ class TestDecimalValidator:
         pass
 
 
+class TestParametrizableValidator:
+    def test__pre_process(self):  # synced
+        assert True
+
+
 class TestListValidator:
     def test___str__(self):  # synced
         assert True
 
-    def test___getitem__(self):  # synced
+    def test_parametrize(self):  # synced
         assert True
 
     def test_of_type(self):  # synced
@@ -136,10 +136,13 @@ class TestDictionaryValidator:
     def test___str__(self):  # synced
         assert True
 
-    def test___getitem__(self):  # synced
+    def test_is_parametrized(self):  # synced
         assert True
 
-    def test_of_types(self):  # synced
+    def test_parametrize(self):  # synced
+        assert True
+
+    def test_of_type(self):  # synced
         assert True
 
     def test_is_valid(self):  # synced
@@ -158,6 +161,15 @@ class TestDateTimeValidator:
 
     def test_after(self):  # synced
         assert True
+
+    def test__to_subtype(self):  # synced
+        assert True
+
+
+class TestDateValidator:
+    class TestDate:
+        def test_convert(self):  # synced
+            assert True
 
     def test__to_subtype(self):  # synced
         assert True
@@ -191,5 +203,5 @@ class TestDirValidator:
 
 
 class TestValidate:
-    def test_Type():  # synced
+    def test_infer_type(self):  # synced
         assert True

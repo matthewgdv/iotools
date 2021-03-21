@@ -1,6 +1,3 @@
-# import pytest
-
-
 class TestCache:
     def test___bool__(self):  # synced
         assert True
@@ -27,9 +24,6 @@ class TestCache:
         assert True
 
     def test_setdefault(self):  # synced
-        assert True
-
-    def test__save(self):  # synced
         assert True
 
     def test__get_content(self):  # synced

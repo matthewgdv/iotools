@@ -6,13 +6,11 @@ from subtypes import Dict
 from pathmagic import PathLike, File, Dir
 from miscutils import executed_within_user_tree
 
-import iotools
-
 
 class Config:
     """
-    A config class that abstracts away the process of creating, reading from, and writing to, a json config file within an OS-appropriate appdata folder.
-    The directory itself can be accessed through the 'Config.folder' attribute.
+    A config class that abstracts away the process of creating, reading from, and writing to, a json config file within an OS-appropriate appdata dir.
+    The directory itself can be accessed through the 'Config.dir' attribute.
     The data held by the config file can be accessed through 'Config.data' attribute, holding a special kind of dictionary that allows its items to be accessed through attribute access.
     Any changes made to this dictionary will not be persisted until Config.save() is called. Config.save() is automatically called upon exiting when this class is used as a context manager.
     This class is intended to be subclassed and can be used simply by providing the 'Config.name' (string) and 'Config.default' (dict) class attributes.
@@ -20,22 +18,24 @@ class Config:
     """
 
     name: str = None
+    author: str = "config"
+
+    systemwide: bool = None
     default: dict = None
 
-    parent: Config = None
-    author: str = None
-    systemwide: bool = None
-
     def __init__(self, name: str = None, author: str = None, default: dict = None, systemwide: bool = None, parent: Config = None) -> None:
-        self.name, self.author, self.default, self.systemwide = name or self.name, author or self.author or "pythondata", default or self.default, systemwide or self.systemwide
+        self.name, self.author = name or self.name, author or self.author
+        self.default, self.systemwide = default or self.default, systemwide or self.systemwide
         self.parent = parent
 
         if self.parent is None:
-            self.root = self.folder = Dir.from_appdata(app_name=self.name, app_author=self.author, systemwide=self.systemwide if self.systemwide is not None else not executed_within_user_tree())
+            data_root = Dir.from_appdata(app_name="data", app_author="python",
+                                         systemwide=self.systemwide if self.systemwide is not None else not executed_within_user_tree())
+            self.root = self.dir = data_root.new_dir(self.author).new_dir(self.name)
         else:
-            self.root, self.folder = parent.root, parent.folder.new_dir(self.name)
+            self.root, self.dir = parent.root, parent.dir.new_dir(self.name)
 
-        self.file = self.folder.new_file(name="config", extension="json")
+        self.file = self.dir.new_file(name="config", extension="json")
         self.data: Dict = self.file.content or Dict(self.default or {})
 
     def __repr__(self) -> str:
@@ -76,7 +76,3 @@ class Config:
     def save(self) -> None:
         """Persist the changes to the 'Config.data' attribute to the config file."""
         self.file.content = self.data
-
-
-class IoToolsConfig(Config):
-    name = iotools.__name__

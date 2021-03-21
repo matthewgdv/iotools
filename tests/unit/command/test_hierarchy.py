@@ -1,7 +1,4 @@
-# import pytest
-
-
-class TestSynchronizer:
+class TestHierarchy:
     def test___getstate__(self):  # synced
         assert True
 
@@ -11,6 +8,9 @@ class TestSynchronizer:
     def test_current_node(self):  # synced
         assert True
 
+    def test_choose_strategy(self):  # synced
+        assert True
+
     def test_run_programatically(self):  # synced
         assert True
 
@@ -18,6 +18,9 @@ class TestSynchronizer:
         assert True
 
     def test_run_from_commandline(self):  # synced
+        assert True
+
+    def test_determine_chosen_node(self):  # synced
         assert True
 
     def test_create_widgets_recursively(self):  # synced
@@ -36,9 +39,6 @@ class TestSynchronizer:
         assert True
 
     def test_set_widgets_from_namespace_recursively(self):  # synced
-        assert True
-
-    def test_determine_chosen_handler(self):  # synced
         assert True
 
 
@@ -83,9 +83,6 @@ class TestNode:
         assert True
 
     def test_set_widgets_from_namespace_recursively(self):  # synced
-        assert True
-
-    def test_validate_argument_dependencies_ascending(self):  # synced
         assert True
 
     def test_set_values_from_widgets_catching_errors_as_warnings_ascending(self):  # synced

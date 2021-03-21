@@ -1,6 +1,3 @@
-# import pytest
-
-
 class TestLost:
     def test___len__(self):  # synced
         assert True
@@ -62,10 +59,10 @@ class TestUnpickleableItemHelper:
     def test_handle_iterable(self):  # synced
         assert True
 
-    def test_is_pickleable():  # synced
+    def test_is_pickleable(self):  # synced
         assert True
 
-    def test_is_endpoint():  # synced
+    def test_is_endpoint(self):  # synced
         assert True
 
 

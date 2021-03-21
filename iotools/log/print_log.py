@@ -34,8 +34,8 @@ class PrintLog(Log):
         return self
 
     def __exit__(self, ex_type: Any, ex_value: Any, ex_traceback: Any) -> None:
-        super().__exit__(ex_type, ex_value, ex_traceback)
         self.redirector.__exit__(ex_type, ex_value, ex_traceback)
+        super().__exit__(ex_type, ex_value, ex_traceback)
 
     def post_process(self) -> None:
         from iotools import Console
