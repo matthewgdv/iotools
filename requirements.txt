@@ -3,15 +3,13 @@ Logbook
 PySide6
 appdirs
 colorama
-cryptography
 cursor
 dill
 maybe-else
-pandas
 pathmagic
 pymiscutils
 pysubtypes
 readchar
-setuptools
+tabulate
 typepy
 wrapt

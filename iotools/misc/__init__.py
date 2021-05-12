@@ -1,6 +1,6 @@
 __all__ = [
     "Console",
-    "Serializer", "Secrets", "LostObject",
+    "Serializer", "LostObject",
     "Cache",
     "Config",
     "Validate", "Condition", "Validator",
@@ -10,7 +10,7 @@ __all__ = [
 
 from .console import Console
 from .config import Config
-from .serializer import Serializer, Secrets, LostObject
+from .serializer import Serializer, LostObject
 from .cache import Cache
 from .validator import Validate, Condition, Validator
 from .script import Script

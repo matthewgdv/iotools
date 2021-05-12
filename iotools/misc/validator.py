@@ -342,7 +342,7 @@ class DateTimeValidator(Validator):
 class DateValidator(DateTimeValidator):
     """A validator that can handle dates. Returns a subtypes.Date instance on Validator.convert(). If a datetime.date object is desired, call Date.to_date()."""
     class Date(typepy.DateTime):
-        def convert(self) -> float:
+        def convert(self) -> dt.date:
             datetime = super().convert()
             return dt.date(datetime.year, datetime.month, datetime.day)
 

@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import warnings
 from typing import Any
 
 from maybe import Maybe
-from subtypes import DateTime
+from subtypes import DateTime, Dict
 from pathmagic import PathLike
 
 from .serializer import Serializer
@@ -13,9 +12,9 @@ from .serializer import Serializer
 class Cache:
     """A cache class that abstracts away the process of persisting python objects to the filesystem using a dict-like interface (common dict methods and item access)."""
 
-    def __init__(self, file: PathLike, days: int = None, hours: int = None, minutes: int = None) -> None:
+    def __init__(self, file: PathLike, expiry: DateTime = None) -> None:
         self.serializer = Serializer(file)
-        self.expiry = None if all([val is None for val in (days, hours, minutes)]) else DateTime.now().shift(days=Maybe(days).else_(0), hours=Maybe(hours).else_(0), minutes=Maybe(minutes).else_(0))
+        self.expiry = expiry
         self.content = self._get_content()
 
     def __repr__(self) -> str:
@@ -63,12 +62,13 @@ class Cache:
             return self.content.data.setdefault(key, default)
 
     def _get_content(self) -> Any:
-        try:
-            content = self.serializer.deserialize()
-        except Exception as ex:
-            warnings.warn(f"The following exception ocurred when attempting to deserialize the contents of the cache at '{self.serializer.file}' and was suppressed:\n\n{ex}\n\nAn empty cache will be returned...")
-            content = None
+        # try:
+        #     content = self.serializer.deserialize()
+        # except Exception as ex:
+        #     warnings.warn(f"The following exception ocurred when attempting to deserialize the contents of the cache at '{self.serializer.file}' and was suppressed:\n\n{ex}\n\nAn empty cache will be returned...")
+        #     content = None
 
+        content = self.serializer.deserialize()
         if not content:
             content = self.Content(expires_on=self.expiry)
             self.serializer.serialize(content)
@@ -78,7 +78,7 @@ class Cache:
     class Content:
         def __init__(self, expires_on: DateTime) -> None:
             self.expiry = expires_on
-            self.data: dict = {}
+            self.data = Dict()
 
         def __repr__(self) -> str:
             return f"{type(self).__name__}({', '.join([f'{attr}={repr(val)}' for attr, val in self.data.items()])})"

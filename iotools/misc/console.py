@@ -3,15 +3,15 @@ from __future__ import annotations
 import sys
 import contextlib
 import types
-from typing import Any, Collection, Set, Callable, cast, TypeVar
+from typing import Any, Sequence, Set, Callable, cast, TypeVar
 import ctypes
 
 import colorama
 import readchar
 import cursor
+import tabulate
 
 from maybe import Maybe
-from subtypes import Frame
 from miscutils import is_running_in_ipython
 
 from iotools import res
@@ -49,7 +49,7 @@ class Console:
         print(f"{cls.UP_ONE_LINE}{cls.CLEAR_CURRENT_LINE}"*num, end="")
 
     @staticmethod
-    def offer_choices(choices: Collection, starting_choice: Any = None, multi_select: bool = False, desc: str = None, helptext: bool = True, display_repr: bool = True) -> Any:
+    def offer_choices(choices: Sequence, starting_choice: Any = None, multi_select: bool = False, desc: str = None, helptext: bool = True, display_repr: bool = True) -> Any:
         """
         Interactively offer choices from a collection to the user. The chosen object will be returned.
         A description of the choice can be optionally provided. If multi_select is True, the user may choose multiple items and a list of them will be returned.
@@ -80,24 +80,25 @@ class Console:
         return mappings[Console.offer_choices(mappings, starting_choice=yes_text if default else no_text, desc=question, display_repr=False, helptext=False)]
 
     @staticmethod
-    def prompt_choices(choices: Collection, desc: str = None, fancy: bool = True) -> Any:
+    def prompt_choices(choices: Sequence, desc: str = None, fancy: bool = True) -> Any:
         """Prompt the user to type in a choice. A description of the choice can be optionally provided."""
         if desc is not None:
             print(f"\n{desc}\n\n")
 
-        df = Frame([(index + 1, key) for index, key in enumerate(choices)], columns=("number", "option"))
-        print(df.to_ascii(fancy=fancy), end="\n\n")
+        print(tabulate.tabulate([(index + 1, key) for index, key in enumerate(choices)], headers=["number", "option"], tablefmt='fancy_grid'), end="\n\n")
+        print(f"Choose an option: 1-{len(choices)}. 'esc' to exit.\n")
 
-        output, prompt = 0, f"Choose an option: 1-{len(choices)}. 'esc' to exit.\n"
-        while output not in list(df.number):
-            output = input(prompt).strip()
-            if output in ["esc", "quit", "bye", "stop", "help"]:
+        choice, num_choices = None, len(choices)
+        escape_keys = [readchar.key.ESC, readchar.key.CTRL_C, "q", "Q"]
+
+        while True:
+            if (keypress := readchar.readkey()) in escape_keys:
                 raise KeyboardInterrupt()
-            else:
-                output = int(output)
 
-        choice, = df[df.number == output].option
-        return choice
+            if 1 <= (choice := keypress) <= num_choices:
+                break
+
+        return choices[choice - 1]
 
     @staticmethod
     @contextlib.contextmanager

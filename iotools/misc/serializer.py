@@ -1,21 +1,13 @@
 from __future__ import annotations
 
-import base64
 from collections.abc import MutableSequence, Sequence, MutableMapping, Mapping, MutableSet, Iterable
 import copy
 import os
 from typing import Any
 
-from cryptography.fernet import Fernet
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 import dill
 
 from pathmagic import File
-from miscutils import cached_property
-
-from .config import Config
 
 
 class Lost:
@@ -191,37 +183,3 @@ class UnpickleableItemHelper:
             return True if type(item).__setattr__ is not object.__setattr__ else False
 
         return False if isinstance(item, Iterable) and not isinstance(item, (str, bytes)) else True
-
-
-class Secrets:
-    """Class to abstract away serializing python objects using fernet encryption. Requires a key stored at the given 'key_path'."""
-
-    def __init__(self, file: os.PathLike, salt: bytes = b"") -> None:
-        self.config = Config()
-        self.serializer, self.salt = Serializer(file), salt
-
-        with self.config:
-            self.config.data.setdefault("encryption_key", "")
-
-    def provide_new_encryption_key(self, key: str) -> None:
-        """Provide a new encryption_key for this class to use. It will be persisted to the filesystem."""
-        with self.config:
-            self.config.data.encryption_key = key
-
-    def encrypt(self, obj: Any) -> None:
-        """Serialize, then encrypt the given python object at this object's file path."""
-        self.serializer.file.path.write_bytes(self.fernet.encrypt(self.serializer.to_bytes(obj)))
-
-    def decrypt(self) -> Any:
-        """Decrypt, then deserialize this object's file path back into a python object."""
-        return self.serializer.from_bytes(self.fernet.decrypt(self.serializer.file.path.read_bytes()))
-
-    @cached_property
-    def fernet(self) -> Fernet:
-        encryption_key = self.config.data.encryption_key
-        if not encryption_key:
-            raise ValueError(f"Must provide an encryption key using {type(self).__name__}.{self.provide_new_encryption_key.__name__}() before continuing.")
-
-        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=self.salt, iterations=100000, backend=default_backend())
-        key = base64.urlsafe_b64encode(kdf.derive(encryption_key.encode()))
-        return Fernet(key)

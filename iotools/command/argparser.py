@@ -3,8 +3,7 @@ from __future__ import annotations
 import argparse
 from typing import Any, Callable, TYPE_CHECKING
 
-
-from subtypes import Frame
+import tabulate
 
 if TYPE_CHECKING:
     from .declarative import CommandHandler
@@ -30,27 +29,27 @@ class ArgParser(argparse.ArgumentParser):
 
     def format_help(self) -> str:
         target_cols = ["name", "commandline_aliases", "type", "default", "nullable", "info", "choices", "conditions"]
-        frame = Frame(
-            [(arg.name, arg.aliases, arg.validator.type_affinity.__name__, arg.default, arg.nullable, arg.info, arg.choices, arg.validator.conditions)
-             for arg in self.handler.arguments],
-            columns=target_cols
-        ).fillna_as_none()
 
-        frame.argtype = frame.argtype.apply(lambda val: str(val))
-        frame.commandline_aliases = frame.commandline_aliases.apply(lambda val: ", ".join([str(alias) for alias in val]))
-        frame.conditions = frame.conditions.apply(lambda val: val if val is None else ", ".join([cond.name for cond in val]))
-        frame.dependency = frame.dependency.apply(lambda val: val if val is None else str(val))
+        required_args, optional_args = [], []
 
-        grouped_frames = dict(tuple(frame.groupby(frame.required.name)))
+        for arg in self.handler.arguments:
+            record = (
+                arg.name,
+                ", ".join(arg.aliases),
+                arg.validator.type_affinity.__name__,
+                arg.default,
+                arg.nullable,
+                arg.info,
+                arg.choices,
+                ", ".join(str(cond) for cond in arg.validator.conditions)
+            )
 
-        detail = ""
-        for header, condition in [("Required Arguments:", True), ("Optional Arguments:", False)]:
-            if condition in grouped_frames:
-                detail += f"{header}\n{Frame(grouped_frames[condition][target_cols]).to_ascii()}\n\n"
+            (required_args if arg.required else optional_args).append(record)
 
-        help_text = f"\n{self.format_usage()}"
-        help_text += f"\n{self.description or ''}\n\n{detail}{self.epilog or ''}"
-        return help_text
+        required = f"Required Arguments\n{tabulate.tabulate(required_args, headers=target_cols, tablefmt='fancy_grid')}"
+        optional = f"Optional Arguments\n{tabulate.tabulate(optional_args, headers=target_cols, tablefmt='fancy_grid')}"
+
+        return f"\n{self.format_usage()}\n{self.description or ''}\n\n{required}\n\n{optional}\n\n{self.epilog or ''}"
 
     def _get_formatter(self) -> Any:
         return self.formatter_class(prog=self.prog, max_help_position=2000, width=2000)

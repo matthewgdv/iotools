@@ -35,7 +35,7 @@ class Config:
         else:
             self.root, self.dir = parent.root, parent.dir.new_dir(self.name)
 
-        self.file = self.dir.new_file(name="config", extension="json")
+        self.file = self.dir.new_file("config", extension="json")
         self.data: Dict = self.file.content or Dict(self.default or {})
 
     def __repr__(self) -> str:
