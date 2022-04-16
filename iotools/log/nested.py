@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from collections import Callable
+from typing import Callable
 import inspect
 from contextlib import contextmanager
 from types import FrameType
